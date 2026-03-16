@@ -1,0 +1,17 @@
+{
+  "name": "dragons-and-dungeons-web-trpg",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Railway-ready AI web TRPG inspired by classic D20 dungeon adventures.",
+  "scripts": {
+    "dev": "node --watch server.mjs",
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
