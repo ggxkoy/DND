@@ -9,6 +9,8 @@ const ROOT_DIR = process.cwd();
 const DATA_DIR = path.join(ROOT_DIR, ".local");
 const DATA_FILE = path.join(DATA_DIR, "app-state.json");
 const PUBLIC_DIR = path.join(ROOT_DIR, "public");
+const DEFAULT_LLM_API_URL = "https://agentrouter.org/v1/chat/completions";
+const DEFAULT_LLM_MODEL = "glm-4.6";
 
 const RACES = {
   human: {
@@ -213,7 +215,7 @@ app.get("/api/bootstrap", async (req, res) => {
     modules: OFFICIAL_MODULES,
     rooms: listRooms(),
     config: {
-      aiEnabled: Boolean(process.env.LLM_API_URL && process.env.LLM_API_KEY)
+      aiEnabled: Boolean(getLlmApiKey())
     }
   });
 });
@@ -738,10 +740,13 @@ async function narrateTurn({ room, scene, choice, actingCharacter, success, roll
 }
 
 async function tryAiNarration(context) {
-  if (!process.env.LLM_API_URL || !process.env.LLM_API_KEY) {
+  const apiKey = getLlmApiKey();
+  if (!apiKey) {
     return null;
   }
 
+  const apiUrl = normalizeChatCompletionsUrl(process.env.LLM_API_URL || DEFAULT_LLM_API_URL);
+  const model = process.env.LLM_MODEL || DEFAULT_LLM_MODEL;
   const prompt = [
     "你是一个中世纪奇幻 TRPG 旁白。",
     `剧本: ${context.room.module.title}`,
@@ -753,16 +758,17 @@ async function tryAiNarration(context) {
   ].join("\n");
 
   try {
-    const response = await fetch(process.env.LLM_API_URL, {
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.LLM_API_KEY}`
+        Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: process.env.LLM_MODEL || "gpt-4o-mini",
+        model,
         messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" }
+        response_format: { type: "json_object" },
+        temperature: 0.8
       })
     });
 
@@ -779,6 +785,27 @@ async function tryAiNarration(context) {
   } catch {
     return null;
   }
+}
+
+function getLlmApiKey() {
+  return process.env.LLM_API_KEY || process.env.ZHIPU_API_KEY || "";
+}
+
+function normalizeChatCompletionsUrl(rawUrl) {
+  const value = String(rawUrl || "").trim().replace(/\/+$/, "");
+  if (!value) {
+    return DEFAULT_LLM_API_URL;
+  }
+  if (value.endsWith("/chat/completions")) {
+    return value;
+  }
+  if (value.endsWith("/v1")) {
+    return `${value}/chat/completions`;
+  }
+  if (value === "https://agentrouter.org") {
+    return "https://agentrouter.org/v1/chat/completions";
+  }
+  return `${value}/v1/chat/completions`;
 }
 
 function buildSceneArt(room) {

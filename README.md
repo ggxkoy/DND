@@ -32,12 +32,21 @@ http://localhost:3000
 
 ```text
 PORT=3000
-LLM_API_URL=
-LLM_API_KEY=
-LLM_MODEL=
+LLM_API_URL=https://agentrouter.org/v1/chat/completions
+LLM_API_KEY=你的 AgentRouter API Key
+LLM_MODEL=glm-4.6
 ```
 
 如果未配置 LLM 相关变量，系统会使用内置叙事引擎，仍可完整游玩。
+
+## AgentRouter + GLM 接入
+
+当前后端默认按 AgentRouter 的 OpenAI 兼容接口调用 `glm-4.6`：
+
+- 推荐直接配置 `LLM_API_URL=https://agentrouter.org/v1/chat/completions`
+- 如果你填的是 `https://agentrouter.org` 或 `https://agentrouter.org/v1`，后端也会自动补全到正确的 `chat/completions` endpoint
+- 默认模型是 `glm-4.6`
+- 如需切换到其他兼容 OpenAI Chat Completions 的平台，再覆盖 `LLM_API_URL` 与 `LLM_MODEL`
 
 ## 自定义剧本格式
 
