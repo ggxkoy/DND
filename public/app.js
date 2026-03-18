@@ -1,35 +1,61 @@
+const VIEWS = ["home", "rolecards", "gamelibrary", "friends", "library", "profile", "gameplay"];
+
 const state = {
   bootstrap: null,
   session: null,
-  userCharacters: [],
-  currentRoom: null
+  investigators: [],
+  currentRoom: null,
+  selectedTemplate: "coc7",
+  currentView: "home"
 };
 
-const elements = {
+const el = {
+  authScreen: document.querySelector("#auth-screen"),
+  appScreen: document.querySelector("#app-screen"),
+  aiStatus: document.querySelector("#ai-status"),
   sessionStatus: document.querySelector("#session-status"),
+  navUsername: document.querySelector("#nav-username"),
+  navLinks: [...document.querySelectorAll(".nav-link")],
+  jumpButtons: [...document.querySelectorAll("[data-jump-view]")],
+  homeStage: document.querySelector("#home-stage"),
+  rolecardsStage: document.querySelector("#rolecards-stage"),
+  gamelibraryStage: document.querySelector("#gamelibrary-stage"),
+  friendsStage: document.querySelector("#friends-stage"),
+  libraryStage: document.querySelector("#library-stage"),
+  profileStage: document.querySelector("#profile-stage"),
+  gameplayStage: document.querySelector("#gameplay-stage"),
+  homeGreeting: document.querySelector("#home-greeting"),
+  homeStats: document.querySelector("#home-stats"),
+  homeModules: document.querySelector("#home-modules"),
+  friendsList: document.querySelector("#friends-list"),
+  libraryList: document.querySelector("#library-list"),
+  profileSummary: document.querySelector("#profile-summary"),
   guestLogin: document.querySelector("#guest-login"),
   register: document.querySelector("#register"),
   login: document.querySelector("#login"),
   username: document.querySelector("#username"),
   password: document.querySelector("#password"),
-  raceSelect: document.querySelector("#race-select"),
-  classSelect: document.querySelector("#class-select"),
+  occupationSelect: document.querySelector("#occupation-select"),
   portraitPreview: document.querySelector("#portrait-preview"),
   statPreview: document.querySelector("#stat-preview"),
+  derivedPreview: document.querySelector("#derived-preview"),
   characterName: document.querySelector("#character-name"),
+  characterAge: document.querySelector("#character-age"),
+  hometownInput: document.querySelector("#hometown-input"),
   skillInput: document.querySelector("#skill-input"),
-  gearInput: document.querySelector("#gear-input"),
   backstoryInput: document.querySelector("#backstory-input"),
   createCharacter: document.querySelector("#create-character"),
   characterList: document.querySelector("#character-list"),
   characterSelect: document.querySelector("#character-select"),
   roomName: document.querySelector("#room-name"),
   moduleSelect: document.querySelector("#module-select"),
+  createTemplateSelect: document.querySelector("#create-template-select"),
   companionList: document.querySelector("#companion-list"),
   scriptJson: document.querySelector("#script-json"),
   createRoom: document.querySelector("#create-room"),
   roomList: document.querySelector("#room-list"),
   roomMeta: document.querySelector("#room-meta"),
+  narrativeTemplateSelect: document.querySelector("#narrative-template-select"),
   sceneArt: document.querySelector("#scene-art"),
   sceneTitle: document.querySelector("#scene-title"),
   sceneDescription: document.querySelector("#scene-description"),
@@ -48,134 +74,175 @@ init().catch((error) => {
 });
 
 async function init() {
-  const savedToken = localStorage.getItem("dnd-session-token");
-  state.bootstrap = await api("/api/bootstrap", { token: savedToken, suppressAuthError: true });
+  const token = localStorage.getItem("dnd-session-token");
+  state.bootstrap = await api("/api/bootstrap", { token, suppressAuthError: true });
   hydrateSession(state.bootstrap.session);
-  state.userCharacters = state.bootstrap.characters || [];
-  renderBootstrap();
+  state.investigators = state.bootstrap.characters || [];
+  state.selectedTemplate = Object.keys(state.bootstrap.narrativeTemplates || {})[0] || "coc7";
   bindEvents();
+  renderAll();
 }
 
 function bindEvents() {
-  elements.guestLogin.addEventListener("click", async () => {
+  el.navLinks.forEach((button) => {
+    button.addEventListener("click", () => {
+      state.currentView = button.dataset.view;
+      renderAll();
+    });
+  });
+
+  el.jumpButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      state.currentView = button.dataset.jumpView;
+      renderAll();
+    });
+  });
+
+  el.guestLogin.addEventListener("click", async () => {
     const data = await api("/api/auth/guest", { method: "POST" });
     hydrateSession(data.session);
     await syncBootstrap();
+    renderAll();
   });
 
-  elements.register.addEventListener("click", async () => {
+  el.register.addEventListener("click", async () => {
     const data = await api("/api/auth/register", {
       method: "POST",
-      body: { username: elements.username.value.trim(), password: elements.password.value.trim() }
+      body: { username: el.username.value.trim(), password: el.password.value.trim() }
     });
     hydrateSession(data.session);
     await syncBootstrap();
+    renderAll();
   });
 
-  elements.login.addEventListener("click", async () => {
+  el.login.addEventListener("click", async () => {
     const data = await api("/api/auth/login", {
       method: "POST",
-      body: { username: elements.username.value.trim(), password: elements.password.value.trim() }
+      body: { username: el.username.value.trim(), password: el.password.value.trim() }
     });
     hydrateSession(data.session);
     await syncBootstrap();
+    renderAll();
   });
 
-  elements.raceSelect.addEventListener("change", renderCharacterPreview);
-  elements.classSelect.addEventListener("change", renderCharacterPreview);
+  el.occupationSelect.addEventListener("change", renderCharacterPreview);
 
-  elements.createCharacter.addEventListener("click", async () => {
+  el.createTemplateSelect.addEventListener("change", () => {
+    state.selectedTemplate = el.createTemplateSelect.value;
+    syncTemplateSelectors();
+  });
+
+  el.narrativeTemplateSelect.addEventListener("change", () => {
+    state.selectedTemplate = el.narrativeTemplateSelect.value;
+    syncTemplateSelectors();
+  });
+
+  el.createCharacter.addEventListener("click", async () => {
     requireSession();
     const data = await api("/api/characters", {
       method: "POST",
       token: state.session?.token,
       body: {
-        name: elements.characterName.value.trim(),
-        raceId: elements.raceSelect.value,
-        classId: elements.classSelect.value,
-        skillChoices: splitInput(elements.skillInput.value),
-        gearChoices: splitInput(elements.gearInput.value),
-        backstory: elements.backstoryInput.value.trim()
+        name: el.characterName.value.trim(),
+        age: Number(el.characterAge.value || 28),
+        hometown: el.hometownInput.value.trim(),
+        occupationId: el.occupationSelect.value,
+        interestSkills: splitInput(el.skillInput.value),
+        backstory: el.backstoryInput.value.trim()
       }
     });
-    state.userCharacters.unshift(data.character);
-    renderCharacterList();
-    fillCharacterSelect();
+    state.investigators.unshift(data.character);
+    state.currentView = "rolecards";
+    renderAll();
   });
 
-  elements.createRoom.addEventListener("click", async () => {
+  el.createRoom.addEventListener("click", async () => {
     requireSession();
     const data = await api("/api/rooms", {
       method: "POST",
       token: state.session?.token,
       body: {
-        roomName: elements.roomName.value.trim(),
-        moduleId: elements.moduleSelect.value,
-        scriptJson: elements.scriptJson.value.trim(),
-        characterId: elements.characterSelect.value,
-        companionIds: getSelectedCompanions()
+        roomName: el.roomName.value.trim(),
+        moduleId: el.moduleSelect.value,
+        scriptJson: el.scriptJson.value.trim(),
+        characterId: el.characterSelect.value,
+        companionIds: getSelectedCompanions(),
+        narrationTemplate: el.createTemplateSelect.value
       }
     });
-    await refreshRooms(data.room.id);
+    state.currentRoom = data.room;
+    state.selectedTemplate = data.room.narrationTemplate || state.selectedTemplate;
+    await syncBootstrap();
+    state.currentView = "gameplay";
+    renderAll();
   });
 
-  elements.submitFreeAction.addEventListener("click", async () => {
-    if (!state.currentRoom) {
-      return;
-    }
-    await performAction({ freeText: elements.freeAction.value.trim() });
-    elements.freeAction.value = "";
+  el.submitFreeAction.addEventListener("click", async () => {
+    if (!state.currentRoom) return;
+    await performAction({ freeText: el.freeAction.value.trim() });
+    el.freeAction.value = "";
   });
 }
 
-function renderBootstrap() {
-  fillRaceAndClass();
+function renderAll() {
+  renderShell();
+  renderTopbar();
+  fillOccupations();
   fillModules();
+  fillNarrativeTemplates();
   fillCompanions();
   renderCharacterPreview();
-  renderCharacterList();
-  renderRoomList(state.bootstrap.rooms || []);
+  renderInvestigators();
+  renderRooms();
+  renderHome();
+  renderFriends();
+  renderLibrary();
+  renderProfile();
+  renderViews();
+  renderGameplay();
 }
 
-function hydrateSession(session) {
-  state.session = session || null;
-  if (session?.token) {
-    localStorage.setItem("dnd-session-token", session.token);
-  } else {
-    localStorage.removeItem("dnd-session-token");
-  }
-
-  elements.sessionStatus.textContent = session
-    ? `${session.user.name}${session.user.isGuest ? "（游客）" : ""}`
-    : "未登录";
+function renderShell() {
+  const loggedIn = Boolean(state.session?.token);
+  el.authScreen.classList.toggle("hidden", loggedIn);
+  el.appScreen.classList.toggle("hidden", !loggedIn);
 }
 
-async function syncBootstrap() {
-  state.bootstrap = await api("/api/bootstrap", {
-    token: state.session?.token,
-    suppressAuthError: true
-  });
-  state.userCharacters = state.bootstrap.characters || [];
-  renderBootstrap();
+function renderTopbar() {
+  const username = state.session?.user?.name || "未登录";
+  el.sessionStatus.textContent = username;
+  el.navUsername.textContent = username;
+  el.aiStatus.textContent = state.bootstrap?.config?.aiEnabled ? "LLM 守秘人在线" : "本地守秘人";
 }
 
-function fillRaceAndClass() {
-  elements.raceSelect.innerHTML = Object.entries(state.bootstrap.races)
-    .map(([id, race]) => `<option value="${id}">${race.label}</option>`)
-    .join("");
-  elements.classSelect.innerHTML = Object.entries(state.bootstrap.classes)
-    .map(([id, role]) => `<option value="${id}">${role.label}</option>`)
+function fillOccupations() {
+  el.occupationSelect.innerHTML = Object.entries(state.bootstrap.occupations || {})
+    .map(([id, occupation]) => `<option value="${id}">${occupation.label}</option>`)
     .join("");
 }
 
 function fillModules() {
-  elements.moduleSelect.innerHTML = state.bootstrap.modules
+  el.moduleSelect.innerHTML = (state.bootstrap.modules || [])
     .map((module) => `<option value="${module.id}">${module.title} · ${module.summary}</option>`)
     .join("");
 }
 
+function fillNarrativeTemplates() {
+  const options = Object.entries(state.bootstrap.narrativeTemplates || {})
+    .map(([id, item]) => `<option value="${id}">${item.label}</option>`)
+    .join("");
+  el.createTemplateSelect.innerHTML = options;
+  el.narrativeTemplateSelect.innerHTML = options;
+  syncTemplateSelectors();
+}
+
+function syncTemplateSelectors() {
+  el.createTemplateSelect.value = state.selectedTemplate;
+  el.narrativeTemplateSelect.value = state.currentRoom?.narrationTemplate || state.selectedTemplate;
+}
+
 function fillCompanions() {
-  elements.companionList.innerHTML = state.bootstrap.companions
+  el.companionList.innerHTML = (state.bootstrap.companions || [])
     .map(
       (companion) => `
         <label>
@@ -188,38 +255,48 @@ function fillCompanions() {
 }
 
 function renderCharacterPreview() {
-  const race = state.bootstrap.races[elements.raceSelect.value];
-  const role = state.bootstrap.classes[elements.classSelect.value];
-  if (!race || !role) {
-    return;
-  }
-
-  elements.portraitPreview.textContent = `${race.portrait} + ${role.portrait}`;
-  elements.statPreview.innerHTML = Object.entries({
-    strength: 10 + race.bonuses.strength,
-    agility: 10 + race.bonuses.agility,
-    intellect: 10 + race.bonuses.intellect,
-    spirit: 10 + race.bonuses.spirit,
-    charm: 10 + race.bonuses.charm
-  })
-    .map(([key, value]) => `<div><span>${key}</span><strong>${value}</strong></div>`)
+  const occupation = state.bootstrap.occupations?.[el.occupationSelect.value];
+  if (!occupation) return;
+  el.portraitPreview.textContent = occupation.portrait;
+  const mockStats = {
+    str: 60,
+    con: 55,
+    siz: 65,
+    dex: 60,
+    app: 50,
+    int: 75,
+    pow: 60,
+    edu: 70
+  };
+  const derived = {
+    hp: Math.floor((mockStats.con + mockStats.siz) / 10),
+    mp: Math.floor(mockStats.pow / 5),
+    san: mockStats.pow,
+    luck: 60
+  };
+  el.statPreview.innerHTML = Object.entries(mockStats)
+    .map(([key, value]) => `<div><span>${key.toUpperCase()}</span><strong>${value}</strong></div>`)
+    .join("");
+  el.derivedPreview.innerHTML = Object.entries(derived)
+    .map(([key, value]) => `<div><span>${key.toUpperCase()}</span><strong>${value}</strong></div>`)
     .join("");
 }
 
-function renderCharacterList() {
-  if (!state.userCharacters.length) {
-    elements.characterList.innerHTML = `<p class="empty">当前还没有角色卡。</p>`;
+function renderInvestigators() {
+  if (!state.investigators.length) {
+    el.characterList.innerHTML = `<p class="empty">当前还没有调查员。</p>`;
     fillCharacterSelect();
     return;
   }
 
-  elements.characterList.innerHTML = state.userCharacters
+  el.characterList.innerHTML = state.investigators
     .map(
-      (character) => `
+      (item) => `
         <article class="mini-card">
-          <h4>${character.name}</h4>
-          <p>${state.bootstrap.races[character.raceId].label} / ${state.bootstrap.classes[character.classId].label}</p>
-          <p>${character.skills.join("、")}</p>
+          <h4>${item.name}</h4>
+          <p>${state.bootstrap.occupations[item.occupationId].label} · ${item.age}岁</p>
+          <p>SAN ${item.derived.san} / HP ${item.derived.hp} / Luck ${item.derived.luck}</p>
+          <p>${topSkills(item.skills).join("、")}</p>
         </article>
       `
     )
@@ -228,79 +305,184 @@ function renderCharacterList() {
 }
 
 function fillCharacterSelect() {
-  elements.characterSelect.innerHTML = state.userCharacters
-    .map((character) => `<option value="${character.id}">${character.name}</option>`)
+  el.characterSelect.innerHTML = state.investigators
+    .map((item) => `<option value="${item.id}">${item.name}</option>`)
     .join("");
 }
 
-function renderRoomList(rooms) {
-  if (!rooms.length) {
-    elements.roomList.innerHTML = `<p class="empty">大厅还没有房间。</p>`;
-    return;
-  }
+function topSkills(skills) {
+  return Object.entries(skills)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([skillId, value]) => `${state.bootstrap.skills[skillId]?.label || skillId} ${value}`);
+}
 
-  elements.roomList.innerHTML = rooms
+function renderRooms() {
+  const rooms = state.bootstrap.rooms || [];
+  el.roomList.innerHTML = rooms.length
+    ? rooms
+        .map(
+          (room) => `
+            <article class="room-card">
+              <div>
+                <h4>${room.roomName}</h4>
+                <p>${room.moduleTitle} · ${room.players}人</p>
+              </div>
+              <div class="room-actions">
+                <button data-room-id="${room.id}">进入</button>
+              </div>
+            </article>
+          `
+        )
+        .join("")
+    : `<p class="empty">目前还没有案件房间。</p>`;
+
+  el.homeModules.innerHTML = (state.bootstrap.modules || [])
     .map(
-      (room) => `
+      (module) => `
         <article class="room-card">
           <div>
-            <h4>${room.roomName}</h4>
-            <p>${room.moduleTitle} · ${room.players}人</p>
+            <h4>${module.title}</h4>
+            <p>${module.summary}</p>
           </div>
           <div class="room-actions">
-            <button data-open-room="${room.id}">进入</button>
+            <button data-pick-module="${module.id}">选用</button>
           </div>
         </article>
       `
     )
     .join("");
 
-  elements.roomList.querySelectorAll("[data-open-room]").forEach((button) => {
+  el.roomList.querySelectorAll("[data-room-id]").forEach((button) => {
     button.addEventListener("click", async () => {
-      await openRoom(button.dataset.openRoom);
+      const data = await api(`/api/rooms/${button.dataset.roomId}`, { token: state.session?.token });
+      state.currentRoom = data.room;
+      state.currentView = "gameplay";
+      renderAll();
+    });
+  });
+
+  el.homeModules.querySelectorAll("[data-pick-module]").forEach((button) => {
+    button.addEventListener("click", () => {
+      el.moduleSelect.value = button.dataset.pickModule;
+      state.currentView = "gamelibrary";
+      renderAll();
     });
   });
 }
 
-async function refreshRooms(focusRoomId) {
-  const bootstrap = await api("/api/bootstrap", {
-    token: state.session?.token,
-    suppressAuthError: true
-  });
-  state.bootstrap.rooms = bootstrap.rooms;
-  renderRoomList(bootstrap.rooms);
-  if (focusRoomId) {
-    await openRoom(focusRoomId);
+function renderHome() {
+  const username = state.session?.user?.name || "调查员";
+  el.homeGreeting.textContent = `欢迎回来，${username} 调查员。`;
+  el.homeStats.innerHTML = [
+    ["角色卡", state.investigators.length],
+    ["案件房间", (state.bootstrap.rooms || []).length],
+    ["规则资料", 3],
+    ["好友入口", 3]
+  ]
+    .map(
+      ([label, value]) => `
+        <article class="mini-card stat-card">
+          <strong>${value}</strong>
+          <span>${label}</span>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderFriends() {
+  const items = [
+    ["黑尔", "常用搭档", "擅长侦查与搬运现场证物"],
+    ["艾薇", "新闻线人", "适合偏都市调查与舆论追踪"],
+    ["玛拉修女", "医疗支援", "在高压调查中提供稳定恢复"]
+  ];
+  el.friendsList.innerHTML = items
+    .map(
+      ([name, role, text]) => `
+        <article class="mini-card">
+          <h4>${name}</h4>
+          <p>${role}</p>
+          <p>${text}</p>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderLibrary() {
+  const items = [
+    ["COC7 快速规则", "建卡、D100、理智与战斗基础"],
+    ["调查员手册摘录", "职业、技能和背景塑造建议"],
+    ["模组说明", "官方模组与自定义 JSON 模组格式"]
+  ];
+  el.libraryList.innerHTML = items
+    .map(
+      ([title, summary]) => `
+        <article class="room-card">
+          <div>
+            <h4>${title}</h4>
+            <p>${summary}</p>
+          </div>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderProfile() {
+  el.profileSummary.innerHTML = [
+    ["账号", state.session?.user?.name || "未登录"],
+    ["身份", state.session?.user?.isGuest ? "访客" : "正式账号"],
+    ["当前模板", state.bootstrap.narrativeTemplates?.[state.selectedTemplate]?.label || "未选择"],
+    ["角色数", state.investigators.length],
+    ["房间数", (state.bootstrap.rooms || []).length]
+  ]
+    .map(([label, value]) => `<div class="summary-item"><span>${label}</span><strong>${value}</strong></div>`)
+    .join("");
+}
+
+function renderViews() {
+  const stages = {
+    home: el.homeStage,
+    rolecards: el.rolecardsStage,
+    gamelibrary: el.gamelibraryStage,
+    friends: el.friendsStage,
+    library: el.libraryStage,
+    profile: el.profileStage,
+    gameplay: el.gameplayStage
+  };
+
+  for (const view of VIEWS) {
+    stages[view].classList.toggle("hidden", state.currentView !== view);
   }
+
+  el.navLinks.forEach((button) => {
+    button.classList.toggle("active", button.dataset.view === state.currentView);
+  });
 }
 
-async function openRoom(roomId) {
-  requireSession();
-  const data = await api(`/api/rooms/${roomId}`, { token: state.session?.token });
-  state.currentRoom = data.room;
-  renderRoom();
-}
-
-function renderRoom() {
-  const room = state.currentRoom;
-  if (!room) {
+function renderGameplay() {
+  if (!state.currentRoom) {
     return;
   }
 
-  elements.roomMeta.textContent = `${room.roomName} · ${room.module.title} · 第 ${room.turn + 1} 回合`;
-  elements.sceneArt.src = room.sceneArt;
-  elements.sceneTitle.textContent = room.currentScene.title;
-  elements.sceneDescription.textContent = room.currentScene.description;
-  elements.partyPanel.innerHTML =
+  const room = state.currentRoom;
+  el.roomMeta.textContent = `${room.roomName} · ${room.module.title} · 第 ${room.turn + 1} 轮`;
+  el.narrativeTemplateSelect.value = room.narrationTemplate || state.selectedTemplate;
+  el.sceneArt.src = room.sceneArt;
+  el.sceneTitle.textContent = room.currentScene.title;
+  el.sceneDescription.textContent = room.currentScene.description;
+
+  el.partyPanel.innerHTML =
     room.players
       .map(
         (player) => `
           <article class="mini-card">
             <h4>${player.character.name}</h4>
-            <p>${state.bootstrap.classes[player.character.classId].label}</p>
-            <p>${Object.entries(player.character.stats)
-              .map(([key, value]) => `${key}:${value}`)
-              .join(" / ")}</p>
+            <p>${state.bootstrap.occupations[player.character.occupationId].label}</p>
+            <p>HP ${player.character.derived.hp} / SAN ${player.character.derived.san} / MP ${player.character.derived.mp}</p>
+            <p>DB ${player.character.derived.damageBonus} / Build ${player.character.derived.build}</p>
           </article>
         `
       )
@@ -317,18 +499,19 @@ function renderRoom() {
       )
       .join("");
 
-  elements.choiceList.innerHTML = "";
+  el.choiceList.innerHTML = "";
   room.currentScene.choices.forEach((choice) => {
-    const button = elements.choiceTemplate.content.firstElementChild.cloneNode(true);
-    button.textContent = `${choice.label} · ${choice.skill} / DC ${choice.dc}`;
+    const button = el.choiceTemplate.content.firstElementChild.cloneNode(true);
+    const skill = state.bootstrap.skills[choice.skill]?.label || choice.skill;
+    button.textContent = `${choice.label} · ${skill} · ${difficultyLabel(choice.difficulty)}`;
     button.addEventListener("click", async () => {
       await performAction({ choiceId: choice.id });
     });
-    elements.choiceList.appendChild(button);
+    el.choiceList.appendChild(button);
   });
 
-  elements.logList.innerHTML = room.logs
-    .map((log) => `<p>${new Date(log.at).toLocaleTimeString()} · ${log.text}</p>`)
+  el.logList.innerHTML = room.logs
+    .map((item) => `<p>${new Date(item.at).toLocaleTimeString()} · ${item.text}</p>`)
     .join("");
 }
 
@@ -338,23 +521,40 @@ async function performAction({ choiceId = "", freeText = "" }) {
     token: state.session?.token,
     body: {
       choiceId,
-      characterId: elements.characterSelect.value,
-      freeText
+      characterId: el.characterSelect.value,
+      freeText,
+      narrationTemplate: el.narrativeTemplateSelect.value
     }
   });
   state.currentRoom = data.room;
-  elements.diceResult.textContent = `d20=${data.outcome.roll} · 总值 ${data.outcome.total}/${data.outcome.dc}`;
-  renderRoom();
+  state.selectedTemplate = data.room.narrationTemplate || state.selectedTemplate;
+  el.diceResult.textContent = `${data.outcome.roll} / ${data.outcome.target} · ${data.outcome.label} · SAN-${data.outcome.sanLoss}`;
+  renderAll();
 }
 
-function requireSession() {
-  if (!state.session?.token) {
-    throw new Error("请先登录或进入游客模式。");
+function hydrateSession(session) {
+  state.session = session || null;
+  if (session?.token) {
+    localStorage.setItem("dnd-session-token", session.token);
+  } else {
+    localStorage.removeItem("dnd-session-token");
   }
 }
 
+async function syncBootstrap() {
+  state.bootstrap = await api("/api/bootstrap", {
+    token: state.session?.token,
+    suppressAuthError: true
+  });
+  state.investigators = state.bootstrap.characters || [];
+}
+
 function getSelectedCompanions() {
-  return [...elements.companionList.querySelectorAll("input:checked")].map((item) => item.value);
+  return [...el.companionList.querySelectorAll("input:checked")].map((item) => item.value);
+}
+
+function difficultyLabel(value) {
+  return value === "extreme" ? "极难" : value === "hard" ? "困难" : "常规";
 }
 
 function splitInput(value) {
@@ -362,6 +562,12 @@ function splitInput(value) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function requireSession() {
+  if (!state.session?.token) {
+    throw new Error("请先登录或以访客模式进入。");
+  }
 }
 
 async function api(url, options = {}) {
@@ -381,6 +587,5 @@ async function api(url, options = {}) {
     }
     throw new Error(error.error || "请求失败");
   }
-
   return response.json();
 }
