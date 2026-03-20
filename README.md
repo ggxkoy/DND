@@ -48,6 +48,34 @@ LLM_MODEL=glm-4.6
 - 默认模型是 `glm-4.6`
 - 如需切换到其他兼容 OpenAI Chat Completions 的平台，再覆盖 `LLM_API_URL` 与 `LLM_MODEL`
 
+## MiniMax 接入
+
+现在后端也直接支持 MiniMax 的 OpenAI 兼容接口，有两种配置方式。
+
+### 方式 1：显式使用 MiniMax 专用变量
+
+```text
+MINIMAX_API_KEY=你的 MiniMax API Key
+MINIMAX_BASE_URL=https://api.minimax.io/v1
+MINIMAX_MODEL=MiniMax-M2.5
+```
+
+### 方式 2：沿用通用 LLM 变量
+
+```text
+LLM_PROVIDER=minimax
+LLM_API_KEY=你的 MiniMax API Key
+LLM_BASE_URL=https://api.minimax.io/v1
+LLM_MODEL=MiniMax-M2.5
+```
+
+兼容说明：
+
+- `LLM_PROVIDER=minimax` 时，后端会优先按 MiniMax 处理
+- `LLM_BASE_URL` 现在也会被识别，不再只接受 `LLM_API_URL`
+- 若 MiniMax 返回带 `<think>...</think>` 的内容，后端会先剥离思考片段，再解析叙事 JSON
+- 若 `response_format=json_object` 不被目标端接受，后端会自动退回普通文本请求并继续尝试解析 JSON
+
 ## 自定义剧本格式
 
 支持导入 JSON，示例：

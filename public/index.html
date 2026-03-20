@@ -3,293 +3,235 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>克苏鲁的呼唤 | AI 网页跑团</title>
+    <title>ELDRITCH TERMINAL | Dragons & Dungeons</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div class="app-shell">
-      <section id="auth-screen" class="auth-screen">
-        <div class="auth-backdrop"></div>
-        <div class="auth-card">
-          <div class="auth-emblem">†</div>
-          <h2>调查员归来</h2>
-          <p class="auth-subtitle">登录你的账户，回到迷雾中的案件。背景素材后续可替换，这里先固定登录入口结构。</p>
-          <div class="form-stack">
-            <label class="field-label" for="username">账号名</label>
-            <input id="username" placeholder="输入账号名" />
-            <label class="field-label" for="password">密码</label>
-            <input id="password" type="password" placeholder="输入密码" />
-          </div>
-          <div class="auth-cta-group">
-            <button id="login" class="primary tall-button">进入主页</button>
-            <div class="auth-quickstart">
-              <strong>快速体验</strong>
-              <p>使用访客身份直接进入主页与系统模块。</p>
-              <button id="guest-login" class="secondary tall-button">访客登录</button>
-            </div>
-          </div>
-          <div class="button-row">
-            <button id="register">创建账户</button>
-          </div>
-        </div>
-      </section>
+    <div class="screen-noise" aria-hidden="true"></div>
 
-      <section id="app-screen" class="hidden">
-        <nav class="main-nav">
-          <div class="nav-brand">
-            <div class="nav-emblem">†</div>
+    <header class="topbar">
+      <div class="brand-block">
+        <p class="brand-kicker">ELDRITCH_TERMINAL_V1.0</p>
+        <h1 class="brand-title">龙与地下城</h1>
+        <p class="brand-subtitle">在线跑团 / 房间联机 / AI 旁白 / 骰点推进</p>
+      </div>
+
+      <nav class="topnav" aria-label="Primary">
+        <a href="#">INVESTIGATION</a>
+        <a href="#">DOSSIER</a>
+        <a href="#">RITUAL</a>
+        <a href="#">BESTIARY</a>
+      </nav>
+
+      <div class="terminal-pill">
+        <span class="status-led"></span>
+        <span id="session-status">未登录</span>
+      </div>
+    </header>
+
+    <div class="app-grid">
+      <aside class="left-rail">
+        <section class="terminal-panel">
+          <div class="panel-heading">
             <div>
-              <strong>克苏鲁的呼唤</strong>
-              <span>多人调查叙事平台</span>
+              <p class="panel-tag">COMMS</p>
+              <h2>登录与会话</h2>
+            </div>
+            <span class="material-symbols-outlined panel-icon">terminal</span>
+          </div>
+
+          <div class="session-shell">
+            <button id="guest-login" class="primary">游客进入</button>
+            <input id="username" placeholder="账号名" />
+            <input id="password" type="password" placeholder="密码" />
+            <div class="auth-actions">
+              <button id="register" class="secondary">注册</button>
+              <button id="login" class="secondary">登录</button>
             </div>
           </div>
-          <div class="nav-links">
-            <button class="nav-link active" data-view="home">主页</button>
-            <button class="nav-link" data-view="rolecards">角色卡</button>
-            <button class="nav-link" data-view="gamelibrary">游戏库</button>
-            <button class="nav-link" data-view="friends">好友</button>
-            <button class="nav-link" data-view="library">图书馆</button>
-            <button class="nav-link" data-view="profile">个人档案</button>
-            <button class="nav-link" data-view="gameplay">进行中</button>
-          </div>
-          <div class="nav-account">
-            <span id="nav-username">未登录</span>
-          </div>
-        </nav>
+        </section>
 
-        <header class="topbar">
-          <div>
-            <p class="eyebrow">COC7 Web Keeper</p>
-            <h1>克苏鲁的呼唤</h1>
-          </div>
-          <div class="topbar-meta">
-            <div class="meta-pill">
-              <span>叙事状态</span>
-              <strong id="ai-status">本地守秘人</strong>
+        <section class="terminal-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="panel-tag">DOSSIER</p>
+              <h2>调查员建档</h2>
             </div>
-            <div class="meta-pill">
-              <span>当前会话</span>
-              <strong id="session-status">未登录</strong>
+            <div class="panel-chip" id="portrait-preview">等待选择</div>
+          </div>
+
+          <div class="dossier-preview">
+            <div class="portrait-frame">
+              <div class="portrait-sigil">
+                <span class="material-symbols-outlined">auto_awesome</span>
+                <p>PORTRAIT READY</p>
+              </div>
+            </div>
+            <div id="stat-preview" class="stat-preview"></div>
+          </div>
+
+          <div class="form-stack">
+            <input id="character-name" placeholder="角色名" />
+            <select id="race-select"></select>
+            <select id="class-select"></select>
+            <input id="skill-input" placeholder="额外技能，逗号分隔" />
+            <input id="gear-input" placeholder="额外装备，逗号分隔" />
+            <textarea id="backstory-input" placeholder="角色背景"></textarea>
+            <button id="create-character" class="primary">创建角色卡</button>
+          </div>
+        </section>
+
+        <section class="terminal-panel roster-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="panel-tag">AGENTS</p>
+              <h2>调查员名册</h2>
+            </div>
+            <span class="panel-micro">LOCAL_ARCHIVE</span>
+          </div>
+          <div id="character-list" class="character-list"></div>
+        </section>
+      </aside>
+
+      <main class="main-column">
+        <section class="hero-panel terminal-panel">
+          <div class="hero-copy">
+            <p class="panel-tag">RITUAL CHAMBER</p>
+            <h2>把跑团大厅、角色卡和实时场景推进收进同一个终端里。</h2>
+            <p>
+              这里保留你现有的全部核心玩法：注册登录、建卡、建房、加入、掷骰、AI
+              叙事和多人同步，只是换成更有氛围感的 Eldritch Terminal 界面。
+            </p>
+          </div>
+          <div class="hero-readouts">
+            <article class="readout-box">
+              <span>FLOW</span>
+              <strong>建卡 → 入房 → 判定 → 演化</strong>
+            </article>
+            <article class="readout-box">
+              <span>STACK</span>
+              <strong>Express / JSON / Railway Ready</strong>
+            </article>
+            <article class="readout-box">
+              <span>MODE</span>
+              <strong>多人在线跑团 MVP</strong>
+            </article>
+          </div>
+        </section>
+
+        <section class="terminal-panel lobby-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="panel-tag">LOBBY</p>
+              <h2>房间与剧本</h2>
+            </div>
+            <span class="panel-micro">官方模组 + DIY JSON</span>
+          </div>
+
+          <div class="lobby-grid">
+            <div class="form-stack room-stack">
+              <input id="room-name" placeholder="房间名" />
+              <select id="character-select"></select>
+              <select id="module-select"></select>
+              <label class="checkbox-list" id="companion-list"></label>
+              <textarea id="script-json" placeholder="可选：粘贴自定义 JSON 剧本"></textarea>
+              <button id="create-room" class="primary">创建冒险房间</button>
+            </div>
+
+            <div class="room-feed">
+              <div class="subpanel-heading">
+                <h3>大厅房间</h3>
+                <span>ROOM INDEX</span>
+              </div>
+              <div id="room-list" class="room-list"></div>
             </div>
           </div>
-        </header>
+        </section>
 
-        <main class="experience-layout no-rail">
-          <section id="home-stage" class="stage-view">
-            <article class="stage-card welcome-card">
-              <div class="welcome-emblem">♔</div>
-              <h2 id="home-greeting">欢迎回来，调查员。</h2>
-              <p>从主页进入不同子菜单。每个模块都是一个独立页面，顶部导航随时可返回主页。</p>
-              <div class="home-hero-actions">
-                <button class="primary tall-button" data-jump-view="rolecards">管理角色卡</button>
-                <button class="primary tall-button" data-jump-view="gamelibrary">进入游戏库</button>
-                <button class="secondary tall-button" data-jump-view="gameplay">继续当前调查</button>
-              </div>
-            </article>
-
-            <article class="stage-card">
-              <div class="stats-grid" id="home-stats"></div>
-            </article>
-
-            <section class="home-module-grid">
-              <button class="module-entry" data-jump-view="rolecards">
-                <span class="module-icon">⌘</span>
-                <strong>角色卡</strong>
-                <p>创建、查看与管理调查员档案。</p>
-              </button>
-              <button class="module-entry" data-jump-view="gamelibrary">
-                <span class="module-icon">✦</span>
-                <strong>游戏库</strong>
-                <p>浏览模组、创建房间与继续案件。</p>
-              </button>
-              <button class="module-entry" data-jump-view="friends">
-                <span class="module-icon">☍</span>
-                <strong>好友</strong>
-                <p>查看伙伴、常用搭档与社交入口。</p>
-              </button>
-              <button class="module-entry" data-jump-view="library">
-                <span class="module-icon">☷</span>
-                <strong>图书馆</strong>
-                <p>查看规则摘要、模组资料与线索手册。</p>
-              </button>
-              <button class="module-entry" data-jump-view="profile">
-                <span class="module-icon">☉</span>
-                <strong>个人档案</strong>
-                <p>查看账号状态、偏好模板与统计信息。</p>
-              </button>
-            </section>
-          </section>
-
-          <section id="rolecards-stage" class="stage-view hidden">
-            <article class="stage-card">
-              <div class="subpage-head">
-                <div>
-                  <p class="panel-tag">Role Cards</p>
-                  <h3>角色卡</h3>
-                </div>
-                <button class="ghost-button" data-jump-view="home">返回主页</button>
-              </div>
-              <div class="character-layout">
-                <div class="form-stack">
-                  <input id="character-name" placeholder="调查员姓名" />
-                  <div class="split-two">
-                    <input id="character-age" type="number" min="18" max="90" value="28" placeholder="年龄" />
-                    <input id="hometown-input" placeholder="故乡 / 常驻地" />
-                  </div>
-                  <select id="occupation-select"></select>
-                  <input id="skill-input" placeholder="兴趣技能，逗号分隔，如 psychology,occult" />
-                  <textarea id="backstory-input" placeholder="背景、心理阴影或驱动力"></textarea>
-                  <button id="create-character" class="primary">创建调查员</button>
-                </div>
-                <div class="preview-stack">
-                  <div class="preview-card">
-                    <div class="preview-head">
-                      <h4>人物观感</h4>
-                      <span id="portrait-preview">等待职业选择</span>
-                    </div>
-                    <div id="stat-preview" class="stat-preview"></div>
-                    <div id="derived-preview" class="stat-preview"></div>
-                  </div>
-                  <div class="preview-card">
-                    <div class="preview-head">
-                      <h4>已创建调查员</h4>
-                      <span>可重复创建</span>
-                    </div>
-                    <div id="character-list" class="character-list"></div>
-                  </div>
-                </div>
-              </div>
-            </article>
-          </section>
-
-          <section id="gamelibrary-stage" class="stage-view hidden">
-            <article class="stage-card">
-              <div class="subpage-head">
-                <div>
-                  <p class="panel-tag">Game Library</p>
-                  <h3>游戏库</h3>
-                </div>
-                <button class="ghost-button" data-jump-view="home">返回主页</button>
-              </div>
-              <div class="mission-layout">
-                <div class="form-stack">
-                  <input id="room-name" placeholder="案件名 / 房间名" />
-                  <select id="character-select"></select>
-                  <select id="module-select"></select>
-                  <select id="create-template-select"></select>
-                  <label class="checkbox-list" id="companion-list"></label>
-                  <textarea id="script-json" placeholder="可选：粘贴自定义调查模组 JSON"></textarea>
-                  <button id="create-room" class="primary">创建房间</button>
-                </div>
-                <div class="preview-stack">
-                  <div class="preview-card">
-                    <div class="preview-head">
-                      <h4>官方模组</h4>
-                      <span>从游戏库开局</span>
-                    </div>
-                    <div id="home-modules" class="room-list"></div>
-                  </div>
-                  <div class="preview-card">
-                    <div class="preview-head">
-                      <h4>现有案件</h4>
-                      <span>可直接继续</span>
-                    </div>
-                    <div id="room-list" class="room-list"></div>
-                  </div>
-                </div>
-              </div>
-            </article>
-          </section>
-
-          <section id="friends-stage" class="stage-view hidden">
-            <article class="stage-card">
-              <div class="subpage-head">
-                <div>
-                  <p class="panel-tag">Friends</p>
-                  <h3>好友</h3>
-                </div>
-                <button class="ghost-button" data-jump-view="home">返回主页</button>
-              </div>
-              <div id="friends-list" class="stats-grid"></div>
-            </article>
-          </section>
-
-          <section id="library-stage" class="stage-view hidden">
-            <article class="stage-card">
-              <div class="subpage-head">
-                <div>
-                  <p class="panel-tag">Library</p>
-                  <h3>图书馆</h3>
-                </div>
-                <button class="ghost-button" data-jump-view="home">返回主页</button>
-              </div>
-              <div id="library-list" class="room-list"></div>
-            </article>
-          </section>
-
-          <section id="profile-stage" class="stage-view hidden">
-            <article class="stage-card">
-              <div class="subpage-head">
-                <div>
-                  <p class="panel-tag">Profile</p>
-                  <h3>个人档案</h3>
-                </div>
-                <button class="ghost-button" data-jump-view="home">返回主页</button>
-              </div>
-              <div id="profile-summary" class="summary-list"></div>
-            </article>
-          </section>
-
-          <section id="gameplay-stage" class="stage-view hidden">
-            <div class="play-layout">
-              <section class="scene-stage stage-card">
-                <div class="subpage-head">
-                  <div>
-                    <p class="panel-tag">Live Session</p>
-                    <h3>进行中的调查</h3>
-                  </div>
-                  <button class="ghost-button" data-jump-view="home">返回主页</button>
-                </div>
-                <div class="scene-toolbar">
-                  <span id="room-meta">尚未进入案件</span>
-                  <select id="narrative-template-select"></select>
-                </div>
-                <img id="scene-art" class="scene-art" alt="Scene Art" />
-                <div id="scene-title" class="scene-title">等待调查开始</div>
-                <p id="scene-description" class="scene-description">房间建立后，这里将显示场景描述、隐藏危险与可尝试的行动。</p>
-                <div id="choice-list" class="choice-list"></div>
-                <textarea id="free-action" placeholder="输入自定义行动，例如：翻检尸体口袋寻找票据"></textarea>
-                <button id="submit-free-action" class="primary">执行自定义行动</button>
-              </section>
-
-              <aside class="sidebar-stage">
-                <section class="stage-card">
-                  <div class="panel-head">
-                    <div>
-                      <p class="panel-tag">Party</p>
-                      <h3>调查员与检定</h3>
-                    </div>
-                    <span id="dice-result">D100 等待检定</span>
-                  </div>
-                  <div id="party-panel" class="party-panel"></div>
-                </section>
-
-                <section class="stage-card">
-                  <div class="panel-head">
-                    <div>
-                      <p class="panel-tag">Keeper Log</p>
-                      <h3>守秘人日志</h3>
-                    </div>
-                    <span>实时记录</span>
-                  </div>
-                  <div id="log-list" class="log-list"></div>
-                </section>
-              </aside>
+        <section class="ritual-grid">
+          <section class="terminal-panel scene-panel">
+            <div class="panel-head">
+              <h2>当前场景</h2>
+              <span id="room-meta">未进入房间</span>
             </div>
+
+            <div class="viewport-frame">
+              <img id="scene-art" class="scene-art" alt="Scene Art" />
+            </div>
+
+            <div class="scene-copy">
+              <div id="scene-title" class="scene-title">等待冒险开始</div>
+              <p id="scene-description" class="scene-description">
+                创建或加入房间后，这里会显示当前 AI 场景描述。
+              </p>
+              <p id="room-presence" class="room-presence">当前未加入任何房间。</p>
+            </div>
+
+            <div class="subpanel-heading">
+              <h3>可执行动作</h3>
+              <span>D20 CHOICES</span>
+            </div>
+            <div id="choice-list" class="choice-list"></div>
           </section>
-        </main>
-      </section>
+
+          <section class="terminal-panel action-panel">
+            <div class="panel-head">
+              <h2>自由行动</h2>
+              <span id="dice-result">d20 等待掷出</span>
+            </div>
+
+            <p class="action-helper">
+              输入你的临场决定，例如“尝试破译墙面符文”或“让游侠掩护我靠近祭坛”。
+            </p>
+            <textarea id="free-action" placeholder="输入自定义行动，例如：尝试潜入侧门"></textarea>
+            <button id="submit-free-action" class="primary">执行自定义行动</button>
+          </section>
+        </section>
+      </main>
+
+      <aside class="right-rail">
+        <section class="terminal-panel">
+          <div class="panel-head">
+            <h2>队伍与同伴</h2>
+            <span>PARTY HUD</span>
+          </div>
+          <div id="party-panel" class="party-panel"></div>
+        </section>
+
+        <section class="terminal-panel log-panel">
+          <div class="panel-head">
+            <h2>行动日志</h2>
+            <span>COMMS LOG</span>
+          </div>
+          <div id="log-list" class="log-list"></div>
+        </section>
+      </aside>
     </div>
+
+    <nav class="mobile-dock" aria-label="Quick status">
+      <div class="dock-item">
+        <span class="material-symbols-outlined">shield_person</span>
+        <span>会话</span>
+      </div>
+      <div class="dock-item dock-item--active">
+        <span class="material-symbols-outlined">psychology</span>
+        <span>冒险</span>
+      </div>
+      <div class="dock-item">
+        <span class="material-symbols-outlined">auto_stories</span>
+        <span>日志</span>
+      </div>
+    </nav>
 
     <template id="choice-template">
       <button class="choice-button"></button>
@@ -297,4 +239,4 @@
 
     <script type="module" src="/app.js"></script>
   </body>
-  </html>
+</html>
