@@ -1,11 +1,14 @@
-const POLL_INTERVAL_MS = 5000;
+const LOBBY_FALLBACK_INTERVAL_MS = 60000;
 
 const state = {
   bootstrap: null,
   session: null,
   userCharacters: [],
   currentRoom: null,
-  roomPollHandle: null
+  roomEventSource: null,
+  lobbyEventSource: null,
+  lobbyRefreshTimer: null,
+  lobbyFallbackHandle: null
 };
 
 const elements = {
@@ -59,6 +62,7 @@ async function init() {
   renderBootstrap();
   renderEmptyRoomState();
   bindEvents();
+  connectLobbyStream();
 }
 
 function bindEvents() {
@@ -168,7 +172,7 @@ function hydrateSession(session) {
     localStorage.setItem("dnd-session-token", session.token);
   } else {
     localStorage.removeItem("dnd-session-token");
-    stopRoomPolling();
+    disconnectRoomStream();
   }
 
   elements.sessionStatus.textContent = session
@@ -376,7 +380,7 @@ async function openRoom(roomId, options = {}) {
   syncCharacterSelectionToRoom();
   await refreshRoomSummaries();
   renderRoom();
-  startRoomPolling();
+  connectRoomStream(roomId);
 }
 
 function renderRoom() {
@@ -388,9 +392,10 @@ function renderRoom() {
 
   const viewerIsMember = Boolean(room.viewer?.isMember);
   const viewerCharacterId = room.viewer?.characterId || "";
-  const canAct = viewerIsMember && !room.completed;
+  const viewerIsDown = room.viewer?.status === "down";
+  const canAct = viewerIsMember && !room.completed && !viewerIsDown;
 
-  elements.roomMeta.textContent = `${room.roomName} · ${room.module.title} · 第 ${room.turn + 1} 回合`;
+  elements.roomMeta.textContent = `${room.roomName} · ${room.module.title} · 第 ${room.turn + 1} 回合 · 危机 ${room.pressure ?? 0}/3`;
   elements.roomPresence.textContent = room.completed
     ? "该房间的当前冒险已经完成，你可以继续查看记录。"
     : viewerIsMember
@@ -401,17 +406,24 @@ function renderRoom() {
   elements.sceneDescription.textContent = room.currentScene.description;
   elements.partyPanel.innerHTML =
     room.players
-      .map(
-        (player) => `
-          <article class="mini-card ${player.characterId === viewerCharacterId ? "current-player" : ""}">
-            <h4>${player.character.name}</h4>
+      .map((player) => {
+        const maxHp = player.character.maxHp ?? 10;
+        const hp = player.hp ?? maxHp;
+        const isDown = player.status === "down";
+        return `
+          <article class="mini-card ${player.characterId === viewerCharacterId ? "current-player" : ""} ${isDown ? "is-down" : ""}">
+            <h4>${player.character.name}${isDown ? `<span class="status-badge status-down">倒地</span>` : ""}</h4>
             <p>${state.bootstrap.classes[player.character.classId].label}</p>
+            <div class="hp-row">
+              <span>HP ${hp}/${maxHp}</span>
+              <div class="hp-bar"><div class="hp-bar-fill ${hp / maxHp <= 0.3 ? "hp-low" : ""}" style="width:${Math.round((hp / maxHp) * 100)}%"></div></div>
+            </div>
             <p>${Object.entries(player.character.stats)
               .map(([key, value]) => `${key}:${value}`)
               .join(" / ")}</p>
           </article>
-        `
-      )
+        `;
+      })
       .join("") +
     room.companions
       .map(
@@ -430,6 +442,8 @@ function renderRoom() {
     elements.choiceList.innerHTML = `<p class="empty">先回到大厅点击“携当前角色加入”，再回来执行行动。</p>`;
   } else if (room.completed) {
     elements.choiceList.innerHTML = `<p class="empty">这个冒险已经完成，目前只保留浏览与回顾功能。</p>`;
+  } else if (viewerIsDown) {
+    elements.choiceList.innerHTML = `<p class="empty">你的角色已倒地，等待队友执行“救助”后才能继续行动。</p>`;
   } else {
     room.currentScene.choices.forEach((choice) => {
       const button = elements.choiceTemplate.content.firstElementChild.cloneNode(true);
@@ -472,7 +486,8 @@ async function performAction({ choiceId = "", freeText = "" }) {
   });
   state.currentRoom = data.room;
   syncCharacterSelectionToRoom();
-  elements.diceResult.textContent = `d20=${data.outcome.roll} · 总值 ${data.outcome.total}/${data.outcome.dc}`;
+  const notes = data.outcome.notes?.length ? ` · ${data.outcome.notes.join(" ")}` : "";
+  elements.diceResult.textContent = `d20=${data.outcome.roll} · 总值 ${data.outcome.total}/${data.outcome.dc}${notes}`;
   await refreshRoomSummaries();
   renderRoom();
 }
@@ -493,7 +508,7 @@ async function refreshRoomSummaries() {
   renderRoomList(state.bootstrap.rooms || []);
 }
 
-async function pollCurrentRoom() {
+async function refetchCurrentRoom() {
   if (!state.currentRoom) {
     return;
   }
@@ -508,23 +523,69 @@ async function pollCurrentRoom() {
     syncCharacterSelectionToRoom();
     renderRoom();
   }
-
-  await refreshRoomSummaries();
 }
 
-function startRoomPolling() {
-  stopRoomPolling();
-  state.roomPollHandle = window.setInterval(() => {
-    pollCurrentRoom().catch((error) => {
-      console.warn("Room polling failed:", error);
+function connectRoomStream(roomId) {
+  disconnectRoomStream();
+  const source = new EventSource(`/api/rooms/${roomId}/events`);
+  state.roomEventSource = source;
+
+  const onUpdate = (event) => {
+    let payload = {};
+    try {
+      payload = JSON.parse(event.data);
+    } catch {}
+    // 自己行动后的回波:lastUpdatedAt 一致则无需重拉
+    if (payload.lastUpdatedAt && payload.lastUpdatedAt === state.currentRoom?.lastUpdatedAt && payload.type !== "art") {
+      return;
+    }
+    refetchCurrentRoom().catch((error) => {
+      console.warn("Room refresh failed:", error);
     });
-  }, POLL_INTERVAL_MS);
+    refreshRoomSummaries().catch(() => {});
+  };
+
+  source.addEventListener("room", onUpdate);
+  // 连接出错时 EventSource 会按服务端 retry 间隔自动重连,无需处理
 }
 
-function stopRoomPolling() {
-  if (state.roomPollHandle) {
-    window.clearInterval(state.roomPollHandle);
-    state.roomPollHandle = null;
+function disconnectRoomStream() {
+  if (state.roomEventSource) {
+    state.roomEventSource.close();
+    state.roomEventSource = null;
+  }
+}
+
+function connectLobbyStream() {
+  if (state.lobbyEventSource) {
+    return;
+  }
+
+  const source = new EventSource("/api/events");
+  state.lobbyEventSource = source;
+  source.addEventListener("lobby", () => {
+    window.clearTimeout(state.lobbyRefreshTimer);
+    state.lobbyRefreshTimer = window.setTimeout(() => {
+      refreshRoomSummaries().catch(() => {});
+    }, 1000);
+  });
+
+  // SSE 不可用环境的低频兜底
+  if (!state.lobbyFallbackHandle) {
+    state.lobbyFallbackHandle = window.setInterval(() => {
+      refreshRoomSummaries().catch(() => {});
+    }, LOBBY_FALLBACK_INTERVAL_MS);
+  }
+}
+
+function disconnectLobbyStream() {
+  if (state.lobbyEventSource) {
+    state.lobbyEventSource.close();
+    state.lobbyEventSource = null;
+  }
+  if (state.lobbyFallbackHandle) {
+    window.clearInterval(state.lobbyFallbackHandle);
+    state.lobbyFallbackHandle = null;
   }
 }
 
