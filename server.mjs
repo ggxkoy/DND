@@ -13,6 +13,8 @@ const DEFAULT_AGENTROUTER_API_URL = "https://agentrouter.org/v1/chat/completions
 const DEFAULT_AGENTROUTER_MODEL = "glm-4.6";
 const DEFAULT_MINIMAX_API_URL = "https://api.minimax.io/v1/chat/completions";
 const DEFAULT_MINIMAX_MODEL = "MiniMax-M2.5";
+const DEFAULT_MINIMAX_IMAGE_API_URL = "https://api.minimax.io/v1/image_generation";
+const DEFAULT_MINIMAX_IMAGE_MODEL = "image-01";
 
 const RACES = {
   human: {
@@ -217,7 +219,8 @@ app.get("/api/bootstrap", async (req, res) => {
     modules: OFFICIAL_MODULES,
     rooms: listRooms(session?.user?.id),
     config: {
-      aiEnabled: Boolean(getLlmConfig())
+      aiEnabled: Boolean(getLlmConfig()),
+      imageEnabled: Boolean(getImageConfig())
     }
   });
 });
@@ -316,9 +319,10 @@ app.post("/api/rooms", async (req, res) => {
       companionIds
     });
 
+    await ensureSceneArt(room);
     db.rooms[room.id] = room;
     await persist();
-    res.json({ room });
+    res.json({ room: hydrateRoom(room, session.user.id) });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -369,6 +373,10 @@ app.get("/api/rooms/:roomId", async (req, res) => {
   }
 
   const session = getSession(req);
+  const generated = await ensureSceneArt(room);
+  if (generated) {
+    await persist();
+  }
   res.json({ room: hydrateRoom(room, session?.user?.id ?? null) });
 });
 
@@ -457,6 +465,7 @@ app.post("/api/rooms/:roomId/action", async (req, res) => {
     pushLog(room, "冒险达成阶段性结局，房间已标记为完成。");
   }
 
+  await ensureSceneArt(room);
   await persist();
   res.json({
     room: hydrateRoom(room, session.user.id),
@@ -655,6 +664,7 @@ function createRoom({ roomName, moduleDefinition, ownerId, characterId, companio
       .map((companionId) => COMPANIONS.find((companion) => companion.id === companionId))
       .filter(Boolean),
     sceneIndex: 0,
+    sceneArtCache: {},
     turn: 0,
     story: [],
     logs: [],
@@ -685,7 +695,7 @@ function hydrateRoom(room, viewerUserId = null) {
       user: sanitizeUser(db.users[player.userId]),
       character: db.characters[player.characterId]
     })),
-    sceneArt: buildSceneArt(room)
+    sceneArt: getRoomSceneArt(room) || buildSceneArt(room)
   };
 }
 
@@ -955,6 +965,141 @@ function parseNarrationContent(content) {
 
 function stripThinkTags(content) {
   return String(content).replace(/<think>[\s\S]*?<\/think>/gi, "");
+}
+
+async function ensureSceneArt(room) {
+  const scene = getCurrentScene(room);
+  if (!scene) {
+    return false;
+  }
+
+  room.sceneArtCache ??= {};
+  if (room.sceneArtCache[scene.id]?.url) {
+    return false;
+  }
+
+  const image = await tryGenerateSceneImage(room, scene);
+  if (!image?.url) {
+    return false;
+  }
+
+  room.sceneArtCache[scene.id] = {
+    url: image.url,
+    provider: image.provider,
+    prompt: image.prompt,
+    generatedAt: new Date().toISOString()
+  };
+  return true;
+}
+
+function getRoomSceneArt(room) {
+  const scene = getCurrentScene(room);
+  return scene ? room.sceneArtCache?.[scene.id]?.url : null;
+}
+
+async function tryGenerateSceneImage(room, scene) {
+  const imageConfig = getImageConfig();
+  if (!imageConfig) {
+    return null;
+  }
+
+  const prompt = buildSceneImagePrompt(room, scene);
+  try {
+    const response = await fetch(imageConfig.apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${imageConfig.apiKey}`
+      },
+      body: JSON.stringify({
+        model: imageConfig.model,
+        prompt,
+        aspect_ratio: "16:9",
+        response_format: "url",
+        n: 1
+      }),
+      signal: AbortSignal.timeout(60000)
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = await response.json();
+    const url = extractImageUrl(payload);
+    return url
+      ? {
+          url,
+          provider: imageConfig.provider,
+          prompt
+        }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function getImageConfig() {
+  const provider = normalizeProvider(process.env.LLM_PROVIDER);
+  const apiKey =
+    process.env.MINIMAX_IMAGE_API_KEY?.trim() ||
+    process.env.MINIMAX_API_KEY?.trim() ||
+    (provider === "minimax" ? process.env.LLM_API_KEY?.trim() : "") ||
+    "";
+
+  if (!apiKey) {
+    return null;
+  }
+
+  return {
+    provider: "minimax",
+    apiKey,
+    apiUrl: normalizeImageGenerationUrl(
+      process.env.MINIMAX_IMAGE_API_URL ||
+        process.env.MINIMAX_IMAGE_BASE_URL ||
+        process.env.MINIMAX_BASE_URL ||
+        DEFAULT_MINIMAX_IMAGE_API_URL
+    ),
+    model: process.env.MINIMAX_IMAGE_MODEL?.trim() || DEFAULT_MINIMAX_IMAGE_MODEL
+  };
+}
+
+function normalizeImageGenerationUrl(rawUrl) {
+  const value = String(rawUrl || "").trim().replace(/\/+$/, "");
+  if (!value) {
+    return DEFAULT_MINIMAX_IMAGE_API_URL;
+  }
+  if (value.endsWith("/image_generation")) {
+    return value;
+  }
+  if (value.endsWith("/v1")) {
+    return `${value}/image_generation`;
+  }
+  return `${value}/v1/image_generation`;
+}
+
+function buildSceneImagePrompt(room, scene) {
+  const moduleTone = room.module?.tone || "dark fantasy";
+  return [
+    `Cinematic tabletop RPG scene illustration, ${moduleTone}.`,
+    `Location: ${scene.title}.`,
+    `Scene details: ${scene.description}.`,
+    "Wide 16:9 composition, dramatic lighting, rich environment detail, painterly realism.",
+    "No text, no UI, no captions, no watermark."
+  ].join(" ");
+}
+
+function extractImageUrl(payload) {
+  const candidates = [
+    ...(Array.isArray(payload?.data?.image_urls) ? payload.data.image_urls : []),
+    ...(Array.isArray(payload?.data?.images) ? payload.data.images : []),
+    ...(Array.isArray(payload?.image_urls) ? payload.image_urls : [])
+  ];
+  const first = candidates.find(Boolean);
+  if (typeof first === "string") {
+    return first;
+  }
+  return first?.url || first?.image_url || first?.file_url || null;
 }
 
 function buildSceneArt(room) {

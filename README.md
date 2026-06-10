@@ -15,6 +15,18 @@ npm install
 npm start
 ```
 
+## MiniMax Image Generation
+
+Scene art uses MiniMax image generation when MiniMax image credentials are configured. If image generation is unavailable or the request fails, the server falls back to the built-in SVG placeholder so the room flow still works.
+
+```text
+MINIMAX_IMAGE_API_KEY=your MiniMax API key
+MINIMAX_IMAGE_API_URL=https://api.minimax.io/v1/image_generation
+MINIMAX_IMAGE_MODEL=image-01
+```
+
+You can also use `MINIMAX_API_KEY` for both MiniMax text and image calls. If you use the generic `LLM_API_KEY`, it is only reused for images when `LLM_PROVIDER=minimax`.
+
 默认访问：
 
 ```text
