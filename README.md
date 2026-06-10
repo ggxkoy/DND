@@ -55,6 +55,31 @@ LLM_MODEL=glm-4.6
 
 如果未配置 LLM 相关变量，系统会使用内置叙事引擎，仍可完整游玩。
 
+## 免费部署（Render）
+
+Railway 已无长期免费层，想免费托管推荐 [Render](https://render.com) 的 Free Web Service，仓库里已带好 `render.yaml`：
+
+1. 将仓库推送到 GitHub。
+2. 登录 Render → New → **Blueprint**，选择该仓库，Render 会读取 `render.yaml` 自动创建服务。
+3. 部署时在控制台填入 `MINIMAX_API_KEY`（或其他 LLM 变量），不要把 key 写进仓库。
+4. 部署完成后访问分配的 `https://xxx.onrender.com` 域名即可。
+
+免费层注意事项：
+
+- 15 分钟无访问后服务会休眠，下次打开有约 30~60 秒冷启动
+- 免费实例没有持久磁盘，**重启/重新部署后 `.local/` 中的存档与场景图会重置**（与未挂卷的 Railway 行为一致）
+- SSE 长连接在休眠唤醒后由浏览器 EventSource 自动重连，无需处理
+
+### 其他免费平台（Docker）
+
+仓库里也提供了通用 `Dockerfile`，可直接部署到任何支持容器的免费平台：
+
+- **Koyeb**：免费额度含 1 个服务，连接 GitHub 选 Docker 构建即可
+- **Hugging Face Spaces**：新建 Docker 类型 Space 并推送本仓库（Space 必须公开），在 Settings → Variables 配置 key
+- **Google Cloud Run**：每月免费额度充足但需绑卡，`gcloud run deploy --source .` 一条命令完成
+
+应用通过 `process.env.PORT` 读取端口，自动适配各平台的端口注入。
+
 ## AgentRouter + GLM 接入
 
 当前后端默认按 AgentRouter 的 OpenAI 兼容接口调用 `glm-4.6`：
