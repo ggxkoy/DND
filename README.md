@@ -80,6 +80,39 @@ Railway 已无长期免费层，想免费托管推荐 [Render](https://render.co
 
 应用通过 `process.env.PORT` 读取端口，自动适配各平台的端口注入。
 
+## 自托管 + Cloudflare Tunnel（数据可持久的免费方案）
+
+如果你有一台能常开的电脑（家用机/NAS/闲置主机），用 [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) 把本机服务暴露到公网是唯一**数据真正持久**的免费方案——存档和场景图都留在本机 `.local/` 目录，没有休眠和冷启动。
+
+### 临时隧道（最快，无需注册）
+
+```powershell
+npm start          # 终端 1：启动游戏服务
+npm run tunnel     # 终端 2：需先安装 cloudflared
+```
+
+`npm run tunnel` 等价于 `cloudflared tunnel --url http://localhost:3000`，会输出一个随机的 `https://xxx.trycloudflare.com` 地址，发给玩家即可联机。注意：**每次重开隧道地址都会变**，适合单次跑团。
+
+### 固定域名隧道（长期使用）
+
+需要一个免费 Cloudflare 账号和一个托管在 Cloudflare 的域名：
+
+```bash
+cloudflared tunnel login
+cloudflared tunnel create dnd
+cloudflared tunnel route dns dnd trpg.你的域名.com
+cloudflared tunnel run --url http://localhost:3000 dnd
+```
+
+之后可把 `cloudflared` 注册为系统服务（`cloudflared service install`）随开机自启。
+
+### 适配说明
+
+- SSE 实时推送可正常穿透 Cloudflare：Cloudflare 代理对约 100 秒无数据的连接会断开，本项目内置 25 秒心跳，长连接不会被掐
+- cloudflared 需要放行出站 7844 端口（家庭宽带默认放行；公司/受限网络可能封禁）
+- 大陆玩家访问 Cloudflare 边缘节点速度一般，但可用
+- 机器关机即服务下线，适合固定时间开团的场景
+
 ## AgentRouter + GLM 接入
 
 当前后端默认按 AgentRouter 的 OpenAI 兼容接口调用 `glm-4.6`：
