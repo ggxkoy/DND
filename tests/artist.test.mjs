@@ -28,5 +28,5 @@ test("parseImageResponse 字符串/数组/缺失", () => {
 });
 
 test("sceneArtFileName 命名规则", () => {
-  assert.equal(sceneArtFileName("room1", 2), "room1-2.png");
+  assert.equal(sceneArtFileName("room1", 2), "room1-2.jpg");
 });

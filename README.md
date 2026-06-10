@@ -91,6 +91,7 @@ LLM_MODEL=MiniMax-M2.5
 - `LLM_BASE_URL` 现在也会被识别，不再只接受 `LLM_API_URL`
 - 若 MiniMax 返回带 `<think>...</think>` 的内容，后端会先剥离思考片段，再解析叙事 JSON
 - 若 `response_format=json_object` 不被目标端接受，后端会自动退回普通文本请求并继续尝试解析 JSON
+- **海外/国内平台自动切换**：MiniMax 海外（`api.minimax.io`）与国内（`api.minimaxi.com`）平台的 key 不互通。后端在默认端点鉴权失败时会自动尝试另一个端点（叙事与生图均适用），因此国内平台的 key 无需额外配置即可使用
 
 ## MiniMax 场景生图
 
@@ -106,6 +107,7 @@ MINIMAX_IMAGE_URL=https://api.minimax.io/v1/image_generation
 - 生图为异步执行，不阻塞行动；生成完成后通过 SSE 推送，前端自动换图
 - 生成期间与未配置 key 时展示程序生成的 SVG 占位海报
 - 图片缓存在 `.local/art/` 目录；Railway 未挂载持久卷时重启会丢图，再次访问场景会自动补生成
+- 国内平台的 key 同样可用（自动切换到 `api.minimaxi.com`，见上文）
 
 ## 实时同步（SSE）
 

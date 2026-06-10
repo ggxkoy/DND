@@ -17,7 +17,7 @@ export const DEFAULT_MINIMAX_IMAGE_MODEL = "image-01";
 export function getLlmConfig(env = process.env) {
   const provider = normalizeProvider(env.LLM_PROVIDER);
   const llmApiKey = env.LLM_API_KEY?.trim() || "";
-  const minimaxApiKey = env.MINIMAX_API_KEY?.trim() || "";
+  const minimaxApiKey = readMinimaxApiKey(env);
   const zhipuApiKey = env.ZHIPU_API_KEY?.trim() || "";
 
   if (provider === "minimax" && (llmApiKey || minimaxApiKey)) {
@@ -57,7 +57,7 @@ export function getLlmConfig(env = process.env) {
 }
 
 export function getImageConfig(env = process.env) {
-  const apiKey = env.MINIMAX_API_KEY?.trim() || "";
+  const apiKey = readMinimaxApiKey(env);
   if (!apiKey) {
     return null;
   }
@@ -67,6 +67,26 @@ export function getImageConfig(env = process.env) {
     apiUrl: env.MINIMAX_IMAGE_URL?.trim() || DEFAULT_MINIMAX_IMAGE_URL,
     model: env.MINIMAX_IMAGE_MODEL?.trim() || DEFAULT_MINIMAX_IMAGE_MODEL
   };
+}
+
+// 兼容部署环境里以 "minimax api" 命名的变量
+function readMinimaxApiKey(env) {
+  return (env.MINIMAX_API_KEY ?? env["minimax api"])?.trim() || "";
+}
+
+/**
+ * MiniMax 海外(api.minimax.io)与国内(api.minimaxi.com)平台的 key 不互通,
+ * 调用方按返回顺序逐个尝试,默认端点鉴权失败时自动落到另一个。
+ */
+export function minimaxUrlCandidates(url) {
+  const value = String(url || "");
+  let alternate = null;
+  if (value.includes("api.minimax.io")) {
+    alternate = value.replace("api.minimax.io", "api.minimaxi.com");
+  } else if (value.includes("api.minimaxi.com")) {
+    alternate = value.replace("api.minimaxi.com", "api.minimax.io");
+  }
+  return alternate && alternate !== value ? [value, alternate] : [value];
 }
 
 export function normalizeProvider(rawValue) {

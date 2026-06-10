@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { ART_DIR, getImageConfig } from "../config.mjs";
+import { ART_DIR, getImageConfig, minimaxUrlCandidates } from "../config.mjs";
 import { broadcastRoom } from "../events.mjs";
 
 const RETRY_COOLDOWN_MS = 60000;
@@ -9,7 +9,8 @@ const inFlight = new Set();
 const lastAttemptAt = new Map();
 
 export function sceneArtFileName(roomId, sceneIndex) {
-  return `${roomId}-${sceneIndex}.png`;
+  // image-01 返回 JPEG
+  return `${roomId}-${sceneIndex}.jpg`;
 }
 
 export function buildScenePrompt(moduleDefinition, scene) {
@@ -35,33 +36,40 @@ export async function generateSceneImage(prompt) {
     return null;
   }
 
-  try {
-    const response = await fetch(config.apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`
-      },
-      body: JSON.stringify({
-        model: config.model,
-        prompt,
-        aspect_ratio: "16:9",
-        response_format: "base64",
-        n: 1
-      }),
-      signal: AbortSignal.timeout(60000)
-    });
+  for (const apiUrl of minimaxUrlCandidates(config.apiUrl)) {
+    try {
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${config.apiKey}`
+        },
+        body: JSON.stringify({
+          model: config.model,
+          prompt,
+          aspect_ratio: "16:9",
+          response_format: "base64",
+          n: 1
+        }),
+        signal: AbortSignal.timeout(60000)
+      });
 
-    if (!response.ok) {
-      return null;
+      if (!response.ok) {
+        continue;
+      }
+
+      // MiniMax 鉴权失败也可能返回 HTTP 200 + base_resp 错误,靠解析结果判断
+      const payload = await response.json();
+      const base64 = parseImageResponse(payload);
+      if (base64) {
+        return Buffer.from(base64, "base64");
+      }
+    } catch {
+      continue;
     }
-
-    const payload = await response.json();
-    const base64 = parseImageResponse(payload);
-    return base64 ? Buffer.from(base64, "base64") : null;
-  } catch {
-    return null;
   }
+
+  return null;
 }
 
 /**

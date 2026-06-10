@@ -5,6 +5,7 @@ import {
   normalizeProvider,
   getLlmConfig,
   getImageConfig,
+  minimaxUrlCandidates,
   DEFAULT_AGENTROUTER_API_URL,
   DEFAULT_MINIMAX_IMAGE_URL
 } from "../src/config.mjs";
@@ -56,6 +57,25 @@ test("getLlmConfig 仅 MINIMAX_API_KEY 也走 MiniMax", () => {
   const config = getLlmConfig({ MINIMAX_API_KEY: "mk" });
   assert.equal(config.provider, "minimax");
   assert.equal(config.apiKey, "mk");
+});
+
+test("minimaxUrlCandidates 海外/国内端点互备", () => {
+  assert.deepEqual(minimaxUrlCandidates("https://api.minimax.io/v1/image_generation"), [
+    "https://api.minimax.io/v1/image_generation",
+    "https://api.minimaxi.com/v1/image_generation"
+  ]);
+  assert.deepEqual(minimaxUrlCandidates("https://api.minimaxi.com/v1/chat/completions"), [
+    "https://api.minimaxi.com/v1/chat/completions",
+    "https://api.minimax.io/v1/chat/completions"
+  ]);
+  assert.deepEqual(minimaxUrlCandidates("https://example.com/v1"), ["https://example.com/v1"]);
+});
+
+test("getImageConfig 兼容 'minimax api' 变量名", () => {
+  const config = getImageConfig({ "minimax api": " mk " });
+  assert.equal(config.apiKey, "mk");
+  const llm = getLlmConfig({ "minimax api": "mk" });
+  assert.equal(llm.provider, "minimax");
 });
 
 test("getImageConfig 有/无 MINIMAX_API_KEY", () => {

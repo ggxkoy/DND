@@ -1,4 +1,4 @@
-import { getLlmConfig } from "../config.mjs";
+import { getLlmConfig, minimaxUrlCandidates } from "../config.mjs";
 
 const HISTORY_LIMIT = 6;
 
@@ -90,31 +90,36 @@ export async function tryAiNarration(context) {
     }
   ];
 
-  try {
-    for (const body of requestBodies) {
-      const response = await fetch(llmConfig.apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${llmConfig.apiKey}`
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(30000)
-      });
+  const apiUrls =
+    llmConfig.provider === "minimax" ? minimaxUrlCandidates(llmConfig.apiUrl) : [llmConfig.apiUrl];
 
-      if (!response.ok) {
+  for (const apiUrl of apiUrls) {
+    for (const body of requestBodies) {
+      try {
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${llmConfig.apiKey}`
+          },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(30000)
+        });
+
+        if (!response.ok) {
+          continue;
+        }
+
+        const payload = await response.json();
+        const content = payload?.choices?.[0]?.message?.content;
+        const parsed = parseNarrationContent(content);
+        if (parsed) {
+          return parsed;
+        }
+      } catch {
         continue;
       }
-
-      const payload = await response.json();
-      const content = payload?.choices?.[0]?.message?.content;
-      const parsed = parseNarrationContent(content);
-      if (parsed) {
-        return parsed;
-      }
     }
-  } catch {
-    return null;
   }
 
   return null;
