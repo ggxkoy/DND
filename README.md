@@ -7,7 +7,7 @@
 - 生存压力：角色 HP、失败掉血、危机值累积爆发、倒地救助、胜利/败退/团灭三种结局
 - 多人房间：邀请码加入、SSE 实时同步（行动、加入、换图即时推送，无需轮询）
 - AI 守秘人：可接入 LLM 生成连贯叙事（带剧情历史上下文），无密钥时使用本地叙事引擎
-- 场景生图：配置 MiniMax API Key 后自动为每个场景生成 16:9 插画，未配置时使用程序生成的 SVG 海报
+- 场景生图与角色立绘：配置 MiniMax API Key 后自动为每个场景生成 16:9 插画、为新角色生成 3:4 立绘，未配置时场景使用程序生成的 SVG 海报
 
 ## 本地运行
 
@@ -15,6 +15,18 @@
 npm install
 npm start
 ```
+
+## MiniMax Image Generation
+
+Scene art uses MiniMax image generation when MiniMax image credentials are configured. If image generation is unavailable or the request fails, the server falls back to the built-in SVG placeholder so the room flow still works.
+
+```text
+MINIMAX_IMAGE_API_KEY=your MiniMax API key
+MINIMAX_IMAGE_API_URL=https://api.minimaxi.com/v1/image_generation
+MINIMAX_IMAGE_MODEL=image-01
+```
+
+You can also use `MINIMAX_API_KEY` for both MiniMax text and image calls. If you use the generic `LLM_API_KEY`, it is only reused for images when `LLM_PROVIDER=minimax`.
 
 默认访问：
 
@@ -151,19 +163,21 @@ LLM_MODEL=MiniMax-M2.5
 - 若 `response_format=json_object` 不被目标端接受，后端会自动退回普通文本请求并继续尝试解析 JSON
 - **海外/国内平台自动切换**：MiniMax 海外（`api.minimax.io`）与国内（`api.minimaxi.com`）平台的 key 不互通。后端在默认端点鉴权失败时会自动尝试另一个端点（叙事与生图均适用），因此国内平台的 key 无需额外配置即可使用
 
-## MiniMax 场景生图
+## MiniMax 场景生图与角色立绘
 
-只要配置了 `MINIMAX_API_KEY`，建房与场景推进时会自动调用 MiniMax 图片生成接口（默认模型 `image-01`，16:9）为当前场景生成插画：
+只要配置了 `MINIMAX_API_KEY`，建房与场景推进时会自动调用 MiniMax 图片生成接口（默认模型 `image-01`，16:9）为当前场景生成插画；创建角色时还会按种族/职业/背景生成 3:4 角色立绘，展示在建卡预览与调查员名册中：
 
 ```text
 MINIMAX_API_KEY=你的 MiniMax API Key
 # 可选覆盖：
+MINIMAX_IMAGE_API_KEY=单独的生图 Key（默认共用 MINIMAX_API_KEY）
 MINIMAX_IMAGE_MODEL=image-01
 MINIMAX_IMAGE_URL=https://api.minimax.io/v1/image_generation
 ```
 
-- 生图为异步执行，不阻塞行动；生成完成后通过 SSE 推送，前端自动换图
-- 生成期间与未配置 key 时展示程序生成的 SVG 占位海报
+- 场景生图为异步执行，不阻塞行动；生成完成后通过 SSE 推送，前端自动换图
+- 角色立绘在建卡时同步生成（一次性约 5~10 秒），失败时角色照常创建
+- 生成期间与未配置 key 时场景展示程序生成的 SVG 占位海报
 - 图片缓存在 `.local/art/` 目录；Railway 未挂载持久卷时重启会丢图，再次访问场景会自动补生成
 - 国内平台的 key 同样可用（自动切换到 `api.minimaxi.com`，见上文）
 

@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import express from "express";
-import { PUBLIC_DIR, ART_DIR, getLlmConfig } from "./config.mjs";
+import { PUBLIC_DIR, ART_DIR, getLlmConfig, getImageConfig } from "./config.mjs";
 import { getDb, persist } from "./store.mjs";
 import {
   createUser,
@@ -32,7 +32,7 @@ import {
   pushLog
 } from "./game/room.mjs";
 import { narrateTurn } from "./llm/narrator.mjs";
-import { queueSceneArt } from "./llm/artist.mjs";
+import { queueSceneArt, ensureCharacterPortrait } from "./llm/artist.mjs";
 import { subscribeRoom, subscribeLobby, broadcastRoom, broadcastLobby } from "./events.mjs";
 
 export function createApp() {
@@ -54,7 +54,8 @@ export function createApp() {
       modules: OFFICIAL_MODULES,
       rooms: listRooms(db, session?.user?.id),
       config: {
-        aiEnabled: Boolean(getLlmConfig())
+        aiEnabled: Boolean(getLlmConfig()),
+        imageEnabled: Boolean(getImageConfig())
       }
     });
   });
@@ -132,6 +133,7 @@ export function createApp() {
       backstory
     });
 
+    await ensureCharacterPortrait(character, RACES[raceId], CLASSES[classId]);
     db.characters[character.id] = character;
     db.users[session.user.id].characterIds.unshift(character.id);
     await persist();

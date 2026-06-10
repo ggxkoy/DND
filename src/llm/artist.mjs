@@ -13,6 +13,51 @@ export function sceneArtFileName(roomId, sceneIndex) {
   return `${roomId}-${sceneIndex}.jpg`;
 }
 
+export function portraitFileName(characterId) {
+  return `portrait-${characterId}.jpg`;
+}
+
+export function buildPortraitPrompt(character, race, job) {
+  return [
+    "Fantasy tabletop RPG character portrait.",
+    `Character: ${character.name}, ${race?.portrait || race?.label || "adventurer"}, ${job?.portrait || job?.label || "hero"}.`,
+    `Background notes: ${character.backstory || "mysterious adventurer"}.`,
+    "Bust portrait, dramatic rim light, detailed costume, painterly realism, clean background.",
+    "No text, no UI, no watermark."
+  ].join(" ");
+}
+
+/**
+ * 建卡时同步生成立绘并落盘(一次性成本,玩家创建后立即看到);
+ * 失败时静默跳过,角色照常创建。
+ */
+export async function ensureCharacterPortrait(character, race, job) {
+  if (character.portraitArt?.url || !getImageConfig()) {
+    return false;
+  }
+
+  const prompt = buildPortraitPrompt(character, race, job);
+  const image = await generateImage(prompt, "3:4");
+  if (!image) {
+    return false;
+  }
+
+  try {
+    await mkdir(ART_DIR, { recursive: true });
+    await writeFile(path.join(ART_DIR, portraitFileName(character.id)), image);
+  } catch (error) {
+    console.warn("Portrait save failed:", error.message);
+    return false;
+  }
+
+  character.portraitArt = {
+    url: `/art/${portraitFileName(character.id)}`,
+    prompt,
+    generatedAt: new Date().toISOString()
+  };
+  return true;
+}
+
 export function buildScenePrompt(moduleDefinition, scene) {
   const description = String(scene.description ?? "").slice(0, 120);
   const tone = moduleDefinition.tone || "dark fantasy";
@@ -30,7 +75,7 @@ export function parseImageResponse(payload) {
   return null;
 }
 
-export async function generateSceneImage(prompt) {
+export async function generateImage(prompt, aspectRatio = "16:9") {
   const config = getImageConfig();
   if (!config) {
     return null;
@@ -47,7 +92,7 @@ export async function generateSceneImage(prompt) {
         body: JSON.stringify({
           model: config.model,
           prompt,
-          aspect_ratio: "16:9",
+          aspect_ratio: aspectRatio,
           response_format: "base64",
           n: 1
         }),
@@ -106,7 +151,7 @@ export function queueSceneArt(room) {
         return;
       }
 
-      const image = await generateSceneImage(buildScenePrompt(room.module, scene));
+      const image = await generateImage(buildScenePrompt(room.module, scene), "16:9");
       if (!image) {
         return;
       }

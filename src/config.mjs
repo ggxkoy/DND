@@ -57,16 +57,42 @@ export function getLlmConfig(env = process.env) {
 }
 
 export function getImageConfig(env = process.env) {
-  const apiKey = readMinimaxApiKey(env);
+  const provider = normalizeProvider(env.LLM_PROVIDER);
+  const apiKey =
+    env.MINIMAX_IMAGE_API_KEY?.trim() ||
+    readMinimaxApiKey(env) ||
+    (provider === "minimax" ? env.LLM_API_KEY?.trim() : "") ||
+    "";
   if (!apiKey) {
     return null;
   }
 
   return {
+    provider: "minimax",
     apiKey,
-    apiUrl: env.MINIMAX_IMAGE_URL?.trim() || DEFAULT_MINIMAX_IMAGE_URL,
+    apiUrl: normalizeImageGenerationUrl(
+      env.MINIMAX_IMAGE_API_URL ||
+        env.MINIMAX_IMAGE_URL ||
+        env.MINIMAX_IMAGE_BASE_URL ||
+        env.MINIMAX_BASE_URL ||
+        DEFAULT_MINIMAX_IMAGE_URL
+    ),
     model: env.MINIMAX_IMAGE_MODEL?.trim() || DEFAULT_MINIMAX_IMAGE_MODEL
   };
+}
+
+export function normalizeImageGenerationUrl(rawUrl) {
+  const value = String(rawUrl || "").trim().replace(/\/+$/, "");
+  if (!value) {
+    return DEFAULT_MINIMAX_IMAGE_URL;
+  }
+  if (value.endsWith("/image_generation")) {
+    return value;
+  }
+  if (value.endsWith("/v1")) {
+    return `${value}/image_generation`;
+  }
+  return `${value}/v1/image_generation`;
 }
 
 // 兼容部署环境里以 "minimax api" 命名的变量

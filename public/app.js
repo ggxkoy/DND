@@ -8,7 +8,8 @@ const state = {
   roomEventSource: null,
   lobbyEventSource: null,
   lobbyRefreshTimer: null,
-  lobbyFallbackHandle: null
+  lobbyFallbackHandle: null,
+  previewPortraitUrl: null
 };
 
 const elements = {
@@ -21,6 +22,7 @@ const elements = {
   raceSelect: document.querySelector("#race-select"),
   classSelect: document.querySelector("#class-select"),
   portraitPreview: document.querySelector("#portrait-preview"),
+  portraitArt: document.querySelector("#portrait-art"),
   statPreview: document.querySelector("#stat-preview"),
   characterName: document.querySelector("#character-name"),
   skillInput: document.querySelector("#skill-input"),
@@ -90,8 +92,8 @@ function bindEvents() {
     await syncBootstrap();
   });
 
-  elements.raceSelect.addEventListener("change", renderCharacterPreview);
-  elements.classSelect.addEventListener("change", renderCharacterPreview);
+  elements.raceSelect.addEventListener("change", resetCharacterPreviewArt);
+  elements.classSelect.addEventListener("change", resetCharacterPreviewArt);
   elements.characterSelect.addEventListener("change", () => {
     renderRoomList(state.bootstrap.rooms || []);
     if (state.currentRoom) {
@@ -114,6 +116,8 @@ function bindEvents() {
       }
     });
     state.userCharacters.unshift(data.character);
+    state.previewPortraitUrl = data.character.portraitArt?.url || null;
+    renderCharacterPreview();
     renderCharacterList();
     fillCharacterSelect();
     renderRoomList(state.bootstrap.rooms || []);
@@ -229,6 +233,7 @@ function renderCharacterPreview() {
   }
 
   elements.portraitPreview.textContent = `${race.portrait} + ${role.portrait}`;
+  renderPortraitArt(state.previewPortraitUrl);
   elements.statPreview.innerHTML = Object.entries({
     strength: 10 + race.bonuses.strength,
     agility: 10 + race.bonuses.agility,
@@ -238,6 +243,26 @@ function renderCharacterPreview() {
   })
     .map(([key, value]) => `<div><span>${key}</span><strong>${value}</strong></div>`)
     .join("");
+}
+
+function resetCharacterPreviewArt() {
+  state.previewPortraitUrl = null;
+  renderCharacterPreview();
+}
+
+function renderPortraitArt(url) {
+  if (!elements.portraitArt) {
+    return;
+  }
+  if (url) {
+    elements.portraitArt.src = url;
+    elements.portraitArt.hidden = false;
+    elements.portraitArt.parentElement.classList.add("has-art");
+    return;
+  }
+  elements.portraitArt.removeAttribute("src");
+  elements.portraitArt.hidden = true;
+  elements.portraitArt.parentElement.classList.remove("has-art");
 }
 
 function renderCharacterList() {
@@ -251,6 +276,11 @@ function renderCharacterList() {
     .map(
       (character) => `
         <article class="mini-card">
+          ${
+            character.portraitArt?.url
+              ? `<img class="mini-card-portrait" src="${character.portraitArt.url}" alt="${character.name}" />`
+              : ""
+          }
           <h4>${character.name}</h4>
           <p>${state.bootstrap.races[character.raceId].label} / ${state.bootstrap.classes[character.classId].label}</p>
           <p>${character.skills.join("、")}</p>
