@@ -21,7 +21,7 @@ Scene art uses MiniMax image generation when MiniMax image credentials are confi
 
 ```text
 MINIMAX_IMAGE_API_KEY=your MiniMax API key
-MINIMAX_IMAGE_API_URL=https://api.minimax.io/v1/image_generation
+MINIMAX_IMAGE_API_URL=https://api.minimaxi.com/v1/image_generation
 MINIMAX_IMAGE_MODEL=image-01
 ```
 

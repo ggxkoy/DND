@@ -13,7 +13,7 @@ const DEFAULT_AGENTROUTER_API_URL = "https://agentrouter.org/v1/chat/completions
 const DEFAULT_AGENTROUTER_MODEL = "glm-4.6";
 const DEFAULT_MINIMAX_API_URL = "https://api.minimax.io/v1/chat/completions";
 const DEFAULT_MINIMAX_MODEL = "MiniMax-M2.5";
-const DEFAULT_MINIMAX_IMAGE_API_URL = "https://api.minimax.io/v1/image_generation";
+const DEFAULT_MINIMAX_IMAGE_API_URL = "https://api.minimaxi.com/v1/image_generation";
 const DEFAULT_MINIMAX_IMAGE_MODEL = "image-01";
 
 const RACES = {
@@ -290,6 +290,7 @@ app.post("/api/characters", async (req, res) => {
     backstory
   });
 
+  await ensureCharacterPortrait(character);
   db.characters[character.id] = character;
   db.users[session.user.id].characterIds.unshift(character.id);
   await persist();
@@ -967,6 +968,38 @@ function stripThinkTags(content) {
   return String(content).replace(/<think>[\s\S]*?<\/think>/gi, "");
 }
 
+async function ensureCharacterPortrait(character) {
+  if (character.portraitArt?.url) {
+    return false;
+  }
+
+  const image = await tryGenerateCharacterPortrait(character);
+  if (!image?.url) {
+    return false;
+  }
+
+  character.portraitArt = {
+    url: image.url,
+    provider: image.provider,
+    prompt: image.prompt,
+    generatedAt: new Date().toISOString()
+  };
+  return true;
+}
+
+async function tryGenerateCharacterPortrait(character) {
+  const race = RACES[character.raceId];
+  const role = CLASSES[character.classId];
+  const prompt = [
+    "Fantasy tabletop RPG character portrait.",
+    `Character: ${character.name}, ${race?.portrait || race?.label || "adventurer"}, ${role?.portrait || role?.label || "hero"}.`,
+    `Background notes: ${character.backstory || "mysterious adventurer"}.`,
+    "Bust portrait, dramatic rim light, detailed costume, painterly realism, clean background.",
+    "No text, no UI, no watermark."
+  ].join(" ");
+  return tryGenerateImage({ prompt, aspectRatio: "3:4" });
+}
+
 async function ensureSceneArt(room) {
   const scene = getCurrentScene(room);
   if (!scene) {
@@ -998,12 +1031,16 @@ function getRoomSceneArt(room) {
 }
 
 async function tryGenerateSceneImage(room, scene) {
+  const prompt = buildSceneImagePrompt(room, scene);
+  return tryGenerateImage({ prompt, aspectRatio: "16:9" });
+}
+
+async function tryGenerateImage({ prompt, aspectRatio }) {
   const imageConfig = getImageConfig();
   if (!imageConfig) {
     return null;
   }
 
-  const prompt = buildSceneImagePrompt(room, scene);
   try {
     const response = await fetch(imageConfig.apiUrl, {
       method: "POST",
@@ -1014,7 +1051,7 @@ async function tryGenerateSceneImage(room, scene) {
       body: JSON.stringify({
         model: imageConfig.model,
         prompt,
-        aspect_ratio: "16:9",
+        aspect_ratio: aspectRatio,
         response_format: "url",
         n: 1
       }),
