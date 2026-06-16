@@ -3,240 +3,65 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ELDRITCH TERMINAL | Dragons & Dungeons</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400"
-      rel="stylesheet"
-    />
+    <title>Messenger Clone</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div class="screen-noise" aria-hidden="true"></div>
+    <main id="app" class="app">
+      <canvas id="world" aria-label="Messenger 3D world"></canvas>
 
-    <header class="topbar">
-      <div class="brand-block">
-        <p class="brand-kicker">ELDRITCH_TERMINAL_V1.0</p>
-        <h1 class="brand-title">龙与地下城</h1>
-        <p class="brand-subtitle">在线跑团 / 房间联机 / AI 旁白 / 骰点推进</p>
-      </div>
+      <section id="title-screen" class="title-screen" aria-label="Messenger title screen">
+        <div class="title-copy">
+          <p class="title-kicker">small planet delivery prototype</p>
+          <h1 class="game-title" aria-label="Messenger">
+            <span>MES</span>
+            <span>SEN</span>
+            <span>GER</span>
+          </h1>
+        </div>
+        <button id="begin-button" class="begin-button" type="button">BEGIN</button>
+      </section>
 
-      <nav class="topnav" aria-label="Primary">
-        <a href="#">INVESTIGATION</a>
-        <a href="#">DOSSIER</a>
-        <a href="#">RITUAL</a>
-        <a href="#">BESTIARY</a>
-      </nav>
-
-      <div class="terminal-pill">
-        <span class="status-led"></span>
-        <span id="session-status">未登录</span>
-      </div>
-    </header>
-
-    <div class="app-grid">
-      <aside class="left-rail">
-        <section class="terminal-panel">
-          <div class="panel-heading">
+      <section id="hud" class="hud is-hidden" aria-label="Game HUD">
+        <aside class="quest-panel" aria-label="任务目标">
+          <div class="quest-head">
             <div>
-              <p class="panel-tag">COMMS</p>
-              <h2>登录与会话</h2>
+              <p>目标</p>
+              <h2>投递清单</h2>
             </div>
-            <span class="material-symbols-outlined panel-icon">terminal</span>
+            <button id="reset-progress" class="icon-button" type="button" title="重置任务">↻</button>
           </div>
+          <div id="quest-list" class="quest-list"></div>
+        </aside>
 
-          <div class="session-shell">
-            <button id="guest-login" class="primary">游客进入</button>
-            <input id="username" placeholder="账号名" />
-            <input id="password" type="password" placeholder="密码" />
-            <div class="auth-actions">
-              <button id="register" class="secondary">注册</button>
-              <button id="login" class="secondary">登录</button>
-            </div>
+        <div class="action-stack" aria-label="快捷功能">
+          <button id="music-toggle" class="round-button" type="button" title="音乐">♪</button>
+          <button id="outfit-toggle" class="round-button" type="button" title="换装">◐</button>
+          <button id="focus-player" class="round-button" type="button" title="回到角色">⌖</button>
+        </div>
+
+        <div id="interaction-prompt" class="interaction-prompt is-hidden"></div>
+
+        <section id="dialogue" class="dialogue is-hidden" aria-live="polite">
+          <div>
+            <p id="dialogue-role" class="dialogue-role"></p>
+            <h2 id="dialogue-name"></h2>
           </div>
+          <p id="dialogue-text"></p>
+          <button id="dialogue-close" type="button">继续</button>
         </section>
 
-        <section class="terminal-panel">
-          <div class="panel-heading">
-            <div>
-              <p class="panel-tag">DOSSIER</p>
-              <h2>调查员建档</h2>
-            </div>
-            <div class="panel-chip" id="portrait-preview">等待选择</div>
-          </div>
+        <div class="controls-hint">WASD / 方向键移动 · Shift 奔跑 · Space 跳跃 · E 对话</div>
 
-          <div class="dossier-preview">
-            <div class="portrait-frame">
-              <img id="portrait-art" class="portrait-art" alt="Character portrait" />
-              <div class="portrait-sigil">
-                <span class="material-symbols-outlined">auto_awesome</span>
-                <p>PORTRAIT READY</p>
-              </div>
-            </div>
-            <div id="stat-preview" class="stat-preview"></div>
-          </div>
-
-          <div class="form-stack">
-            <input id="character-name" placeholder="角色名" />
-            <select id="race-select"></select>
-            <select id="class-select"></select>
-            <input id="skill-input" placeholder="额外技能，逗号分隔" />
-            <input id="gear-input" placeholder="额外装备，逗号分隔" />
-            <textarea id="backstory-input" placeholder="角色背景"></textarea>
-            <button id="create-character" class="primary">创建角色卡</button>
-          </div>
-        </section>
-
-        <section class="terminal-panel roster-panel">
-          <div class="panel-heading">
-            <div>
-              <p class="panel-tag">AGENTS</p>
-              <h2>调查员名册</h2>
-            </div>
-            <span class="panel-micro">LOCAL_ARCHIVE</span>
-          </div>
-          <div id="character-list" class="character-list"></div>
-        </section>
-      </aside>
-
-      <main class="main-column">
-        <section class="hero-panel terminal-panel">
-          <div class="hero-copy">
-            <p class="panel-tag">RITUAL CHAMBER</p>
-            <h2>把跑团大厅、角色卡和实时场景推进收进同一个终端里。</h2>
-            <p>
-              这里保留你现有的全部核心玩法：注册登录、建卡、建房、加入、掷骰、AI
-              叙事和多人同步，只是换成更有氛围感的 Eldritch Terminal 界面。
-            </p>
-          </div>
-          <div class="hero-readouts">
-            <article class="readout-box">
-              <span>FLOW</span>
-              <strong>建卡 → 入房 → 判定 → 演化</strong>
-            </article>
-            <article class="readout-box">
-              <span>STACK</span>
-              <strong>Express / JSON / Railway Ready</strong>
-            </article>
-            <article class="readout-box">
-              <span>MODE</span>
-              <strong>多人在线跑团 MVP</strong>
-            </article>
-          </div>
-        </section>
-
-        <section class="terminal-panel lobby-panel">
-          <div class="panel-heading">
-            <div>
-              <p class="panel-tag">LOBBY</p>
-              <h2>房间与剧本</h2>
-            </div>
-            <span class="panel-micro">官方模组 + DIY JSON</span>
-          </div>
-
-          <div class="lobby-grid">
-            <div class="form-stack room-stack">
-              <input id="room-name" placeholder="房间名" />
-              <select id="character-select"></select>
-              <select id="module-select"></select>
-              <label class="checkbox-list" id="companion-list"></label>
-              <textarea id="script-json" placeholder="可选：粘贴自定义 JSON 剧本"></textarea>
-              <button id="create-room" class="primary">创建冒险房间</button>
-            </div>
-
-            <div class="room-feed">
-              <div class="subpanel-heading">
-                <h3>大厅房间</h3>
-                <span>ROOM INDEX</span>
-              </div>
-              <div id="room-list" class="room-list"></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="ritual-grid">
-          <section class="terminal-panel scene-panel">
-            <div class="panel-head">
-              <h2>当前场景</h2>
-              <span id="room-meta">未进入房间</span>
-            </div>
-
-            <div class="viewport-frame">
-              <img id="scene-art" class="scene-art" alt="Scene Art" />
-            </div>
-
-            <div class="scene-copy">
-              <div id="scene-title" class="scene-title">等待冒险开始</div>
-              <p id="scene-description" class="scene-description">
-                创建或加入房间后，这里会显示当前 AI 场景描述。
-              </p>
-              <p id="room-presence" class="room-presence">当前未加入任何房间。</p>
-            </div>
-
-            <div class="subpanel-heading">
-              <h3>可执行动作</h3>
-              <span>D20 CHOICES</span>
-            </div>
-            <div id="choice-list" class="choice-list"></div>
-          </section>
-
-          <section class="terminal-panel action-panel">
-            <div class="panel-head">
-              <h2>自由行动</h2>
-              <span id="dice-result">d20 等待掷出</span>
-            </div>
-
-            <p class="action-helper">
-              输入你的临场决定，例如“尝试破译墙面符文”或“让游侠掩护我靠近祭坛”。
-            </p>
-            <textarea id="free-action" placeholder="输入自定义行动，例如：尝试潜入侧门"></textarea>
-            <button id="submit-free-action" class="primary">执行自定义行动</button>
-          </section>
-        </section>
-      </main>
-
-      <aside class="right-rail">
-        <section class="terminal-panel">
-          <div class="panel-head">
-            <h2>队伍与同伴</h2>
-            <span>PARTY HUD</span>
-          </div>
-          <div id="party-panel" class="party-panel"></div>
-        </section>
-
-        <section class="terminal-panel log-panel">
-          <div class="panel-head">
-            <h2>行动日志</h2>
-            <span>COMMS LOG</span>
-          </div>
-          <div id="log-list" class="log-list"></div>
-        </section>
-      </aside>
-    </div>
-
-    <nav class="mobile-dock" aria-label="Quick status">
-      <div class="dock-item">
-        <span class="material-symbols-outlined">shield_person</span>
-        <span>会话</span>
-      </div>
-      <div class="dock-item dock-item--active">
-        <span class="material-symbols-outlined">psychology</span>
-        <span>冒险</span>
-      </div>
-      <div class="dock-item">
-        <span class="material-symbols-outlined">auto_stories</span>
-        <span>日志</span>
-      </div>
-    </nav>
-
-    <template id="choice-template">
-      <button class="choice-button"></button>
-    </template>
+        <div class="touch-pad" aria-label="移动控制">
+          <button data-touch-key="up" type="button">↑</button>
+          <button data-touch-key="left" type="button">←</button>
+          <button data-touch-key="down" type="button">↓</button>
+          <button data-touch-key="right" type="button">→</button>
+          <button data-touch-key="talk" type="button">E</button>
+        </div>
+      </section>
+    </main>
 
     <script type="module" src="/app.js"></script>
   </body>

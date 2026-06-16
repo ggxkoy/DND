@@ -1,9 +1,9 @@
 {
-  "name": "dragons-and-dungeons-web-trpg",
+  "name": "messenger-geometry-clone",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Railway-ready AI web TRPG inspired by classic D20 dungeon adventures.",
+  "description": "A geometry-first clone of the Messenger WebGL exploration site.",
   "scripts": {
     "dev": "node --watch server.mjs",
     "start": "node server.mjs"
@@ -12,6 +12,7 @@
     "node": ">=22"
   },
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "three": "^0.184.0"
   }
 }
