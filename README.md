@@ -2,6 +2,10 @@
 
 A lightweight Three.js recreation of [messenger.abeto.co](https://messenger.abeto.co/) with simple geometry instead of original art assets.
 
+## Reference
+
+- Original website: [https://messenger.abeto.co/](https://messenger.abeto.co/)
+
 ## What it includes
 
 - Full-screen title scene with `MES / SEN / GER` and `BEGIN`
